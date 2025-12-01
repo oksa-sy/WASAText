@@ -1,0 +1,152 @@
+package api
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/julienschmidt/httprouter"
+	"github.com/oksa-sy/WASAText/service/api/reqcontext"
+)
+
+func (rt *_router) searchUsers(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	username := r.URL.Query().Get(("username"))
+	if !validateName(username) {
+		http.Error(w, "invalid: username must be between 3 and 16 characters or it contains invalid characters (alphanumeric only)", http.StatusBadRequest)
+		return
+	}
+	result, err := rt.db.GetUsersByName(username)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// creo la struct user necessaria nel model del database per rispettare l'api
+	finalResult := make([]User, 0)
+	for _, user := range result {
+		u := User{
+			Id:       user.Id,
+			Username: user.Username,
+		}
+		finalResult = append(finalResult, u)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(finalResult)
+	if err != nil {
+		rt.baseLogger.Errorf("Error encoding response: %v", err)
+	}
+
+}
+
+func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	var body struct {
+		Username string `json:"name"`
+	}
+	// controllo se il json è corrotto e metto il contenuto in body
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if !validateName(body.Username) {
+		http.Error(w, "invalid: username must be between 3 and 16 characters or it contains invalid characters (alphanumeric only)", http.StatusBadRequest)
+		return
+	}
+	// passo l'user di input al database
+	err = rt.db.SetUserName(ctx.UserId, body.Username)
+	// controlo se si verificano errori
+	if err != nil {
+		// controllo se l'errore è causato dalla UNIQUE nel database, in quel caso l'utente sta provando a inserire un username gia esistente
+		if strings.Contains(err.Error(), "constraint failed") || strings.Contains(err.Error(), "UNIQUE") {
+			http.Error(w, "username already taken", http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// se è tutto ok invio 200 ok con username scelto
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(body)
+	if err != nil {
+		rt.baseLogger.Errorf("Error encoding response: %v", err)
+	}
+}
+
+// recupero l'immagine dall'input utente, la salvo in images e restituisco il path
+func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	// controllo che il file non superi 5MB
+	err := r.ParseMultipartForm(5 << 20)
+	if err != nil {
+		http.Error(w, "file is too large", http.StatusBadRequest)
+		return
+	}
+	// lettura del file dalla richiesta
+	file, fileHeader, err := r.FormFile("photoFile")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	// lettura dei primi 512 byte: contengono informazioni per verificare che si tratta effettivamente di un' immagine
+	buff := make([]byte, 512)
+	_, err = file.Read(buff)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+		return
+	}
+	filetype := http.DetectContentType(buff)
+	if filetype != "image/jpeg" && filetype != "image/png" {
+		http.Error(w, "invalid format, only jpeg and png allowed", http.StatusBadRequest)
+		return
+	}
+	// riporto il cursore a inizio file
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+		return
+	}
+	// creazione file, memorizzato tramite id utente per evitare duplicati
+	extension := filepath.Ext(fileHeader.Filename)
+	if extension == "" {
+		extension = ".png"
+	}
+	filename := ctx.UserId + extension
+	filePath := filepath.Join("./images", filename) // salva in cartella images
+	// creo file
+	dst, err := os.Create(filePath)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+		return
+	}
+	defer dst.Close()
+	// copio i dati dell'immagine nel file appena creato
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+		return
+	}
+	// URL per il data base
+	photoURL := "/images/" + filename
+	err = rt.db.SetUserPhoto(ctx.UserId, photoURL)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+		return
+	}
+	var photo struct {
+		Photo string `json:"photo"`
+	}
+	photo.Photo = photoURL
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(photo)
+}

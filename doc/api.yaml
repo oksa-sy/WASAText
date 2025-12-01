@@ -1,0 +1,857 @@
+openapi: '3.0.3'
+info:
+  title: WASATextAPI
+  version: '1.0'
+servers:
+  - url: https://api.server.test/v1
+
+tags: 
+  - name: Users
+    description: user operations
+  - name: Messages
+    description: message operations
+  - name: Login
+    description: authentication and session
+  - name: Groups
+    description: group operations
+  - name: Conversations
+    description: conversation operations
+
+paths: 
+#login
+  /session:
+    post:
+      tags: ["Login"]
+      summary: Logs in the user
+      description: If the user does not exist, it will be created, and an identifier is returned. If the user exists, the user identifier is returned.
+      operationId: doLogin
+      requestBody:
+        description: User details
+        content:
+          application/json:
+            schema:
+              type: object
+              description: username for the session
+              properties:
+                  name:
+                    $ref: '#/components/schemas/Name'
+        required: true
+      responses:
+        '201':
+          description: User log-in action successful
+          content:
+            application/json:
+              schema: 
+                type: object
+                description: user identifier
+                properties:
+                  identifier:
+                    $ref: "#/components/schemas/Identifier"
+
+  /users: 
+    #ricercare utenti
+    get:
+      tags: ["Users"]
+      operationId: searchUsers
+      summary: searchs for an user
+      description: returns an user with the specified name
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: query
+          description: name of the desired user
+          schema:
+            $ref: '#/components/schemas/Name'
+      responses:
+        '200':
+          description: user obtained successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: researched users 
+                properties:
+                  users: 
+                    type: array
+                    description: list of possible researched users
+                    minItems: 1
+                    maxItems: 50
+                    items:
+                      $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+
+  #sessione di un determinato utente
+  /users/me/name:
+    #aggiornare o creare username con uno che non è gia in uso
+    put:
+      tags: ["Users"]
+      operationId: setMyUserName
+      summary: complete username update
+      description: updating username or creating one if it doesn't exist
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: name of the user
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object 
+              description: username to insert or update
+              properties:
+                name:
+                  $ref: "#/components/schemas/Name"
+              required:
+                - name
+      responses:
+        '200':
+          description: username updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object  
+                description: the new username
+                properties:
+                  name:
+                    $ref: "#/components/schemas/Name"
+                required:
+                  - name
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+           $ref: '#/components/responses/Conflict'
+
+  /users/me/photo:
+    #aggiorna o crea foto
+    put:
+      tags: ["Users"]
+      operationId: setMyPhoto
+      summary: complete name update
+      description: updating user photo or creating one if it doesn't exist
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: user picture
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: format of the photo
+              properties:
+                photoFile: 
+                  type: string
+                  format: binary #dice a OpenAPI che è un file
+                  description: photo to insert or update
+                  #non necessari, ma servono per lo standard OpenApi
+                  minLength: 1
+                  maxLength: 5242880
+              required:
+                - photoFile
+      responses:
+        '200':
+          description: photo updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+#gestione conversazioni
+  /conversations:
+    #ottenere tutte le conversazioni in ordine cronologico inverso
+    #per ogni elemento: -username/nome gruppo
+    #                   -foto profilo
+    #                   -data e ora ultimo messaggio
+    #                   -anteprima messaggio (testo o icona se è una foto)
+    get: 
+      tags: ["Conversations"]
+      operationId:  getMyConversations 
+      summary: list of all conversations
+      description: list of all existing conversations in reverse chronological order
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: conversations obtained successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: requested conversations
+                properties:
+                  conversations: 
+                    type: array
+                    minItems: 1
+                    maxItems: 50
+                    description: list of all conversations
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+
+    #creare nuova conversazione
+    post:
+      tags: ["Conversations"]
+      operationId: createConversation
+      summary: creation of a new conversation
+      description: registering a new conversation. The ID is assigned by the server.
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: data of the new conversation. The id is not included.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversation"
+      responses:
+        '201':
+          description: conversation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  #messaggi in una determinata conversazione
+  /conversations/{conversationId}/messages:
+    parameters:
+    - name: conversationId
+      in: path
+      required: true
+      description: conversation id
+      schema: 
+        $ref: "#/components/schemas/ConversationID"
+    #lista messaggi in ordine cronologico inverso
+    #per ogni elemento: -timestamp
+    #                   -contenuto (testo o foto)
+    #                   -username mittente
+    get: 
+      tags: ["Conversations"]
+      operationId: getConversation
+      summary: list of all messages
+      description: list of all messages in a conversation. Sorted in reverse chronological order
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: messages obtained successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: request of messages in a conversation
+                properties:
+                  messages: 
+                    type: array
+                    description: list of messages in a conversation
+                    minItems: 0
+                    maxItems: 50
+                    items:
+                      $ref: "#/components/schemas/Message"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    #inviare e rispondere a un messaggio
+    post:
+      tags: ["Conversations"]
+      operationId: sendMessage
+      summary: creating a new message
+      description: creating a new message for sending or replying, id assigned by server.
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: data of the new message. 
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessage'
+      responses:
+        '201':
+          description: message created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  #gruppi
+  /groups:
+    #creazione gruppi
+    post:
+      tags: ["Groups"]
+      operationId: createGroup
+      summary: creating a new group
+      description: registering a new group. Id is assigned by the server
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: data of the new group. Id is not included.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '201':
+          description: group created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+
+  #rappresenta un gruppo specifico
+  /groups/{groupId}/name:
+    #aggiungi nome gruppo
+    put:
+      tags: ["Groups"]
+      operationId: setGroupName
+      summary: complete name update
+      description: updating group name or creating one if it doesn't exist
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: group id
+          schema: 
+            $ref: "#/components/schemas/GroupID"
+      requestBody:
+        description:  name of the group
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object 
+              description: insert or update of group name
+              properties:
+                name:
+                  $ref: "#/components/schemas/Name"
+              required:
+                - name
+      responses:
+        '200':
+          description: name updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Name'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /groups/{groupId}/photo:
+    #aggiungi foto profilo
+    put: 
+      tags: ["Groups"]
+      operationId: setGroupPhoto
+      summary: complete photo update
+      description: updating group photo or uploading one if it doesn't exist
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: group id
+          schema: 
+            $ref: "#/components/schemas/GroupID"
+      requestBody:
+        description:  photo of the group
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              description: format of the photo
+              properties:
+                photoFile: 
+                  type: string
+                  format: binary #dice a OpenAPI che è un file
+                  description: photo to add or update
+                  #non necessari, ma servono per lo standard OpenApi
+                  minLength: 1
+                  maxLength: 5242880
+              required:
+                - photoFile
+      responses:
+        '200':
+          description: photo updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /groups/{groupId}/members:
+    #aggiungere un solo utente solo se si è nel gruppo
+    #gli utenti esistenti non possono aggiungersi da soli o vedere gruppi di cui non fanno parte
+    post:
+      tags: ["Groups"]
+      operationId: addToGroup
+      summary: adding member to a group
+      description: Update the group by adding a member if one is not already present.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: group id
+          schema: 
+            $ref: "#/components/schemas/GroupID"
+      requestBody:
+        description: data of the new member.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: identifier of the new member to add
+              properties:
+                userId:
+                  $ref: "#/components/schemas/Identifier"
+              required:
+                - userId
+      responses:
+        '201':
+          description: user added successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: identifier of the new member added
+                properties:
+                  userId:
+                    $ref: "#/components/schemas/Identifier"
+                required:
+                  - userId
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /groups/{groupId}/members/me:
+    #lasciare gruppo
+    delete:
+      tags: ["Groups"]
+      operationId: leaveGroup
+      summary: leaving a group
+      description: leaving the group with the specified id
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: group id
+          schema: 
+            $ref: "#/components/schemas/GroupID"
+      responses:
+        '204':
+          description: group exited successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  #operazioni su un messaggio specifico
+  /messages/{messageId}: 
+    parameters:
+    - name: messageId
+      in: path
+      required: true
+      description: message id
+      schema: 
+        $ref: "#/components/schemas/MessageID"
+    #inoltrare messaggio
+    post: 
+      tags: ["Messages"]
+      operationId: forwardMessage
+      summary: forwarding a message
+      description: forwarding a message with the specified id to a specified conversation.
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: destined conversation id.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: id of the conversation where the message is forwarded
+              properties:
+                conversationId:
+                  $ref: '#/components/schemas/ConversationID'
+              required:
+                - conversationId
+      responses:
+        '201':
+          description: message forwarded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    #eliminare messaggio
+    delete:
+      tags: ["Messages"]
+      operationId: deleteMessage
+      summary: deleting a message
+      description: deleting a message with the specified id.
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: message deleted successfully.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  #reazioni a un determinato messaggio
+  /messages/{messageId}/reaction:
+    parameters:
+    - name: messageId
+      in: path
+      required: true
+      description: message id
+      schema: 
+        $ref: "#/components/schemas/MessageID"
+    #creo una nuova reazione, specificata: -reazione
+    #                                      -utente che l'ha inviata
+    post:
+      tags: ["Messages"]
+      operationId: commentMessage
+      summary: creating new reaction
+      description: creating a new reaction to a specified message.
+      security:
+        - BearerAuth: []
+      requestBody:
+        description: data of the new reaction.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReaction'
+      responses:
+        '201':
+          description: reaction created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    #elimino una reazione
+    delete:
+      tags: ["Messages"]
+      operationId: uncommentMessage
+      summary: deleting a reaction
+      description: deleting a reaction to the message with the specified id.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: emoji 
+          in: query
+          required: true
+          description: the emoji of the reaction to remove
+          schema:
+            type: string
+            example: "👍"
+            #non necessari, ma servono per lo standard OpenApi
+            minLength: 1
+            maxLength: 15
+            pattern: '^.+$'
+      responses:
+        '204':
+          description: reaction deleted successfully.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+
+
+components:
+  schemas:
+    #una spunta o due spunte
+    Status: 
+      enum: [recieved, read]
+      description: status of the message, could be recieved or read, represented by checkmarks
+      example: recieved
+
+    Photo:
+      type: string
+      description: profile picture of an user o a group.
+      pattern: '^https?://\S+$'
+      minLength: 20
+      maxLength: 2048
+
+    Timestamp:
+      type: string
+      format: date-time
+      description: date and time of the last message.
+      example: 2025-11-02T17:44:00Z
+
+    Name:
+        type: string
+        description: name decided by user.
+        example: Maria
+        pattern: '^[a-zA-Z0-9]+$'
+        minLength: 3
+        maxLength: 16
+
+    GroupName:
+        type: string
+        description: name of the group
+        example: Friends Forever
+        pattern: '^[\w\s\-\.]+$' 
+        minLength: 3
+        maxLength: 16
+    
+    Identifier:
+      type: string
+      description: user id assigne by server.
+      readOnly: true
+      pattern: '^[a-zA-Z0-9-]+$'
+      minLength: 3
+      maxLength: 16
+      example: "abcdef012345"
+
+    Content: 
+      type: string
+      description: content of the message, could be a picture or text
+      pattern: '^.*$'
+      minLength: 1
+      maxLength: 1000
+      example: hello
+
+    #struttura utente
+    User: 
+      type: object
+      description: complete user informations
+      properties:
+        identifier:
+          $ref: "#/components/schemas/Identifier"
+        username:
+          $ref: "#/components/schemas/Name"
+
+    CreateConversation:
+      type: object
+      description: recipient data to start a 1-on-1 conversation
+      required:
+        - participantId
+      properties:
+        participantId:
+          $ref: "#/components/schemas/Identifier"
+
+    Conversation: 
+      type: object
+      description: complete conversation informations
+      properties:
+        id:
+          $ref: "#/components/schemas/ConversationID"
+        name:
+          $ref: "#/components/schemas/Name"
+        photo: 
+          $ref: "#/components/schemas/Photo"
+        timestamp:
+          $ref: "#/components/schemas/Timestamp"
+        preview:
+          $ref: "#/components/schemas/Content"
+      required:
+        - name
+        - photo
+        - timestamp
+        - preview
+        - id
+
+    ConversationID:
+      type: string
+      description: unique ID assigned by server
+      readOnly: true
+      pattern: '^[a-zA-Z0-9-]+$'
+      minLength: 3
+      maxLength: 16
+      example: "abcdef012345"
+
+    CreateMessage:
+      type: object
+      description: data to create and send a message.
+      properties:
+        content:
+          $ref: "#/components/schemas/Content"
+        replyTo: #messaggio a cui si sta risponendo, opzionale, non necessariamente in risposta a un altro messaggio
+          $ref: "#/components/schemas/MessageID"
+      required:
+        - content
+  
+    Message:
+      type: object
+      description: complete message informations
+      properties:
+        id: 
+          $ref: '#/components/schemas/MessageID'
+        content: 
+          $ref: "#/components/schemas/Content"
+        username:
+          $ref: "#/components/schemas/Name"
+        timestamp:
+          $ref: "#/components/schemas/Timestamp"
+        reaction:
+          description: reactions to the message
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Reaction'
+        status:
+          $ref: "#/components/schemas/Status"
+      required:
+        - content
+        - timestamp
+        - username
+        - id
+
+    MessageID:
+      type: string
+      description: message id assigned by server
+      readOnly: true
+      pattern: '^[a-zA-Z0-9-]+$'
+      minLength: 3
+      maxLength: 16
+      example: "abcdef012345"
+
+    Group: 
+      type: object
+      description: complete group informations
+      properties:
+        id:
+          $ref: "#/components/schemas/GroupID"
+        name: 
+          $ref: "#/components/schemas/GroupName"
+        photo: 
+          $ref: "#/components/schemas/Photo"
+        members: 
+          type: array
+          description: ids of users who are members of the group
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/Identifier" 
+      required:
+        - name
+        - members
+
+    GroupID:
+      type: string
+      description: group id assigned by the Server
+      readOnly: true
+      pattern: '^[a-zA-Z0-9-]+$'
+      minLength: 3
+      maxLength: 16
+      example: "abcdef012345"
+
+    CreateReaction:
+      type: object
+      description: creating a reaction
+      properties:
+        emoji: 
+          type: string
+          description: emoticon
+          #non necessari, ma servono per lo standard OpenApi
+          minLength: 1
+          maxLength: 15
+          pattern: '^.+$'
+          example: "👍"
+      required:
+        - emoji
+
+    Reaction: 
+      type: object
+      description: reaction to a text
+      properties:
+        emoji:
+          type: string
+          description: emoticon
+          #non necessari, ma servono per lo standard OpenApi
+          minLength: 1
+          maxLength: 15
+          pattern: '^.+$'
+          example: "👍"
+        username: 
+          $ref: "#/components/schemas/Name"
+      required:
+        - emoji
+        - username
+
+    Error:
+      type: object
+      description: error code and message
+      properties:
+        code:
+          type: string
+          description: error code
+          example: "NOT_FOUND"
+        message:
+          type: string
+          description: error message
+          example: "the requested resource was not found."
+
+  responses:
+
+    NotFound:
+      description: resource not found (404 Not Found)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            groupNotFound:
+              value:
+                code: "GROUP_404"
+                message: "no group found with the specified id."
+
+    BadRequest:
+      description: unvalid request (400 Bad Request)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalidInput:
+              value:
+                code: "VALIDATION_ERROR"
+                message: "the data provided is invalid. Please check the constraints and required fields."
+      
+    Conflict:
+      description: the resource already exists (409 Conflict)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            usernameInUse:
+              value:
+                code: "USERNAME_409"
+                message: "specified username already in use."
+
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: UserID
+      description: user identifier obtained in /session.
