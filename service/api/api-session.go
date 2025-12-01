@@ -20,13 +20,12 @@ func (rt *_router) doLogin(w http.ResponseWriter, r *http.Request, ps httprouter
 	}
 	// controllo su lunghezza e pattern per verificare le regole definite nell'api
 	if !validateName(body.Username) {
-		http.Error(w, "invalid: username must be between 3 and 16 characters or it contains invalid characters (alphanumeric only)", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid: username must be between 3 and 16 characters or it contains invalid characters (alphanumeric only)")
 		return
 	}
 	// chiamo la funzione in database per ottenere l'id utente
 	userId, err := rt.db.CreateUser(body.Username)
 	if err != nil {
-		rt.baseLogger.Errorf("Database error in doLogin: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

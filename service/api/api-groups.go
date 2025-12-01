@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -22,17 +21,16 @@ func (rt *_router) createGroup(w http.ResponseWriter, r *http.Request, ps httpro
 	}
 	// controllo sulla validità dell'input
 	if len(group.Members) < 1 || len(group.Members) > 100 {
-		http.Error(w, "invalid number of members", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid number of members")
 		return
 	}
 	if !validateGroupName(group.Name) {
-		http.Error(w, "invalid: group name must be between 3 and 16 characters or it contains invalid characters", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid: group name must be between 3 and 16 characters or it contains invalid characters")
 		return
 	}
 	resultGroup, err := rt.db.CreateNewGroup(ctx.UserId, group.Name, group.Members)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
 		return
 	}
 	group = Group{
@@ -61,14 +59,14 @@ func (rt *_router) setGroupName(w http.ResponseWriter, r *http.Request, ps httpr
 		return
 	}
 	if !validateGroupName(body.Name) {
-		http.Error(w, "invalid: group name must be between 3 and 16 characters or it contains invalid characters", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid: group name must be between 3 and 16 characters or it contains invalid characters")
 		return
 	}
 	name, err := rt.db.UpdateGroupName(body.Name, groupId, ctx.UserId)
 	if err != nil {
 		// controllo se l'errore è "group not found" o "user not in group", in quel caso ritorno un 404
-		if err.Error() == "group not found" || err.Error() == "user not in group" {
-			w.WriteHeader(http.StatusNotFound)
+		if err.Error() == RowNotFound {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -107,7 +105,11 @@ func (rt *_router) addToGroup(w http.ResponseWriter, r *http.Request, ps httprou
 	idResult, err := rt.db.AddUserToGroup(id.Id, ctx.UserId, groupId)
 	if err != nil {
 		if err.Error() == "limit exceeded" {
-			http.Error(w, "limit of members exceeded", http.StatusBadRequest)
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "limit of members exceeded")
+			return
+		}
+		if err.Error() == RowNotFound {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -125,9 +127,9 @@ func (rt *_router) leaveGroup(w http.ResponseWriter, r *http.Request, ps httprou
 	groupId := ps.ByName("groupId") // leggo l'id del gruppo dal path
 	err := rt.db.LeaveGroup(ctx.UserId, groupId)
 	if err != nil {
-		// controllo se l'errore è "group not found" o "user not in group", in quel caso ritorno un 404
-		if err.Error() == "group not found" || err.Error() == "user not in group" {
-			w.WriteHeader(http.StatusNotFound)
+		// controllo se l'errore è RowNotFound, in quel caso ritorno un 404
+		if err.Error() == RowNotFound {
+			errorJson(w, http.StatusNotFound, ErrCodeNotFound, "no result with the specified criteria")
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -142,7 +144,7 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 	// controllo che il file non superi 5MB
 	err := r.ParseMultipartForm(5 << 20)
 	if err != nil {
-		http.Error(w, "file is too large", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "file is too large")
 		return
 	}
 	// lettura del file dalla richiesta
@@ -161,7 +163,7 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 	}
 	filetype := http.DetectContentType(buff)
 	if filetype != "image/jpeg" && filetype != "image/png" {
-		http.Error(w, "invalid format, only jpeg and png allowed", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid format, only jpeg and png allowed")
 		return
 	}
 	// riporto il cursore a inizio file
@@ -196,7 +198,7 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 	err = rt.db.SetNewGroupPhoto(groupId, photoURL, ctx.UserId)
 	if err != nil {
 		if err.Error() == RowNotFound {
-			w.WriteHeader(http.StatusNotFound)
+			errorJson(w, http.StatusNotFound, ErrCodeNotFound, "no result with the specified criteria")
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -208,5 +210,8 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 	photo.Photo = photoURL
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(photo)
+	err = json.NewEncoder(w).Encode(photo)
+	if err != nil {
+		rt.baseLogger.Errorf("Error encoding response: %v", err)
+	}
 }

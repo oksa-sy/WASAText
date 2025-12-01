@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -13,6 +14,7 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 	conversations, err := rt.db.GetAllConversations(ctx.UserId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
 		return
 	}
 	conversationReuslts := make([]Conversation, 0)
@@ -49,6 +51,10 @@ func (rt *_router) createConversation(w http.ResponseWriter, r *http.Request, ps
 	}
 	conversation, err := rt.db.CreateNewConversation(newConversation.ParticipantId, ctx.UserId)
 	if err != nil {
+		if err.Error() == RowNotFound {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -76,11 +82,15 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 	conversationId := ps.ByName("conversationId") // leggo l'id della conversazione dal path
 	// controllo che il messaggio non sia vuoto o più lungo di 1000 caratteri
 	if len(newMessage.Content) < 1 || len(newMessage.Content) > 1000 {
-		http.Error(w, "message content cannot be empty or greater then 1000 characters", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "message content cannot be empty or greater then 1000 characters")
 		return
 	}
 	message, err := rt.db.CreateMessage(conversationId, ctx.UserId, newMessage.Content, newMessage.ReplyTo)
 	if err != nil {
+		if err.Error() == RowNotFound {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -104,6 +114,10 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 	conversationId := ps.ByName("conversationId") // leggo l'id della conversazione dal path
 	messages, err := rt.db.GetConversation(conversationId, ctx.UserId)
 	if err != nil {
+		if err.Error() == RowNotFound {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

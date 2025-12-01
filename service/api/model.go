@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/json"
+	"net/http"
 	"regexp"
 	"time"
 )
@@ -28,6 +30,24 @@ func validateGroupName(name string) bool {
 	}
 	return true
 }
+
+// inviare errori nel formato JSON corretto rispettando l'api
+func errorJson(w http.ResponseWriter, statusCode int, code string, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	errResponse := Error{
+		Code:    code,
+		Message: message,
+	}
+	_ = json.NewEncoder(w).Encode(errResponse)
+}
+
+const (
+	ErrCodeInternal   = "INTERNAL_ERROR"
+	ErrCodeBadRequest = "BAD_REQUEST"
+	ErrCodeConflict   = "CONFLICT"
+	ErrCodeNotFound   = "NOT_FOUND"
+)
 
 const (
 	RecievedSatus Status = "received"
@@ -81,7 +101,6 @@ type Reaction struct {
 	Username string `json:"username"`
 }
 
-// da implimentare in futuro se necessario
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`

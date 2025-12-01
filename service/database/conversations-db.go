@@ -1,6 +1,11 @@
 package database
 
-import "github.com/oksa-sy/WASAText/service/globaltime"
+import (
+	"database/sql"
+	"errors"
+
+	"github.com/oksa-sy/WASAText/service/globaltime"
+)
 
 func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) {
 	conversationResult := make([]Conversation, 0)
@@ -29,9 +34,21 @@ func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) 
 	// costruisco la struct risultate per ogni riga risultante dalla select
 	for conversations.Next() {
 		var conversation Conversation
-		err := conversations.Scan(&conversation.Id, &conversation.Name, &conversation.Photo, &conversation.TimeStamp, &conversation.Preview)
+		// per considerare il caso in cui timestamp e content sono NULL
+		var dbTime sql.NullTime
+		var dbContent sql.NullString
+		err := conversations.Scan(&conversation.Id, &conversation.Name, &conversation.Photo, &dbTime, &dbContent)
 		if err != nil {
 			return nil, err
+		}
+		// se i valori sono non null, li metto nella struct
+		if dbTime.Valid {
+			conversation.TimeStamp = dbTime.Time
+		}
+		if dbContent.Valid {
+			conversation.Preview = dbContent.String
+		} else {
+			conversation.Preview = ""
 		}
 		conversationResult = append(conversationResult, conversation)
 	}
@@ -49,6 +66,9 @@ func (db *appdbimpl) CreateNewConversation(participantId string, userId string) 
 	var photo string
 	err := db.c.QueryRow(`SELECT username, photo FROM users WHERE id = ?`, participantId).Scan(&username, &photo)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return conversation, errors.New(RowNotFound)
+		}
 		return conversation, err
 	}
 	// se esiste genero l'id della conversazione
@@ -88,6 +108,9 @@ func (db *appdbimpl) CreateMessage(conversationId string, userId string, content
 	var uId string
 	err := db.c.QueryRow(`SELECT conversation_id, user_id FROM participants WHERE conversation_id = ? and user_id = ?`, conversationId, userId).Scan(&cId, &uId)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return message, errors.New(RowNotFound)
+		}
 		return message, err
 	}
 	// creo il messaggio
@@ -106,11 +129,17 @@ func (db *appdbimpl) CreateMessage(conversationId string, userId string, content
 		var mId string
 		err := db.c.QueryRow(`SELECT id FROM messages WHERE conversation_id = ? and id = ?`, conversationId, replyTo).Scan(&mId)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return message, errors.New(RowNotFound)
+			}
 			return message, err
 		}
 		// se esiste lo memorizzo, altrimenti ritorno l'errore
 		_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, reply_to, status) VALUES (?, ?, ?, ?, ?, ?, 'recieved')", messageId, conversationId, userId, content, currentTime, replyTo)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return message, errors.New(RowNotFound)
+			}
 			return message, err
 		}
 	}
@@ -136,6 +165,9 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 	var user string
 	err := db.c.QueryRow(`SELECT user_id FROM participants WHERE user_id = ? and conversation_id = ?`, userId, conversationId).Scan(&user)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New(RowNotFound)
+		}
 		return nil, err
 	}
 	// segno i messaggi nella conversazione inviati dall'altro utente come letti

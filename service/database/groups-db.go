@@ -47,7 +47,7 @@ func (db *appdbimpl) UpdateGroupName(name string, groupId string, userId string)
 	err := db.c.QueryRow(`SELECT user_id FROM participants WHERE conversation_id = ? and user_id = ?`, groupId, userId).Scan(&id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", errors.New("user not in group")
+			return "", errors.New(RowNotFound)
 		}
 		return "", err
 	}
@@ -59,7 +59,7 @@ func (db *appdbimpl) UpdateGroupName(name string, groupId string, userId string)
 	affected, err := r.RowsAffected()
 	if err != nil {
 		if affected == 0 {
-			return "", errors.New("group not found")
+			return "", errors.New(RowNotFound)
 		}
 		return "", err
 	}
@@ -88,16 +88,25 @@ func (db *appdbimpl) AddUserToGroup(memberId string, userId string, groupId stri
 	var isGroup bool
 	err := db.c.QueryRow(`SELECT is_group FROM conversations WHERE id = ?`, groupId).Scan(&isGroup)
 	if err != nil || !isGroup {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New(RowNotFound)
+		}
 		return "", err
 	}
 	var exists int
 	err = db.c.QueryRow(`SELECT 1 from participants WHERE user_id = ? and conversation_id = ?`, userId, groupId).Scan(&exists)
 	if err != nil || !isGroup {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New(RowNotFound)
+		}
 		return "", err
 	}
 	// controllo se l'utente fa parte del gruppo
 	err = db.c.QueryRow("SELECT 1 FROM users WHERE id = ?", memberId).Scan(&exists)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New(RowNotFound)
+		}
 		return "", err
 	}
 	var numMembers int
@@ -124,7 +133,7 @@ func (db *appdbimpl) LeaveGroup(userId string, groupId string) error {
 	err := db.c.QueryRow(`SELECT is_group FROM conversations WHERE id = ?`, groupId).Scan(&isGroup)
 	if err != nil || !isGroup {
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("group not found")
+			return errors.New(RowNotFound)
 		}
 		return err
 	}
@@ -132,7 +141,7 @@ func (db *appdbimpl) LeaveGroup(userId string, groupId string) error {
 	err = db.c.QueryRow(`SELECT 1 from participants WHERE user_id = ? and conversation_id = ?`, userId, groupId).Scan(&exists)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("user not in group")
+			return errors.New(RowNotFound)
 		}
 		return err
 	}

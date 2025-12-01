@@ -16,7 +16,7 @@ import (
 func (rt *_router) searchUsers(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	username := r.URL.Query().Get(("username"))
 	if !validateName(username) {
-		http.Error(w, "invalid: username must be between 3 and 16 characters or it contains invalid characters (alphanumeric only)", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid: username must be between 3 and 16 characters or it contains invalid characters (alphanumeric only)")
 		return
 	}
 	result, err := rt.db.GetUsersByName(username)
@@ -53,7 +53,7 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 		return
 	}
 	if !validateName(body.Username) {
-		http.Error(w, "invalid: username must be between 3 and 16 characters or it contains invalid characters (alphanumeric only)", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid: username must be between 3 and 16 characters or it contains invalid characters (alphanumeric only)")
 		return
 	}
 	// passo l'user di input al database
@@ -62,7 +62,7 @@ func (rt *_router) setMyUserName(w http.ResponseWriter, r *http.Request, ps http
 	if err != nil {
 		// controllo se l'errore è causato dalla UNIQUE nel database, in quel caso l'utente sta provando a inserire un username gia esistente
 		if strings.Contains(err.Error(), "constraint failed") || strings.Contains(err.Error(), "UNIQUE") {
-			http.Error(w, "username already taken", http.StatusConflict)
+			errorJson(w, http.StatusConflict, ErrCodeConflict, "username already taken")
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -82,7 +82,7 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 	// controllo che il file non superi 5MB
 	err := r.ParseMultipartForm(5 << 20)
 	if err != nil {
-		http.Error(w, "file is too large", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "file is too large")
 		return
 	}
 	// lettura del file dalla richiesta
@@ -97,12 +97,11 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 	_, err = file.Read(buff)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
 		return
 	}
 	filetype := http.DetectContentType(buff)
 	if filetype != "image/jpeg" && filetype != "image/png" {
-		http.Error(w, "invalid format, only jpeg and png allowed", http.StatusBadRequest)
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid format: only jpeg and png allowed")
 		return
 	}
 	// riporto il cursore a inizio file

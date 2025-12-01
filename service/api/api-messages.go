@@ -24,11 +24,7 @@ func (rt *_router) forwardMessage(w http.ResponseWriter, r *http.Request, ps htt
 	if err != nil {
 		// controllo se l'errore è "not found", in quel caso ritorno un 404
 		if err.Error() == RowNotFound {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		if err.Error() == "limit exceeded" {
-			http.Error(w, "limit of reactions exeeded", http.StatusBadRequest)
+			errorJson(w, http.StatusNotFound, ErrCodeNotFound, "no result with the specified criteria")
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -55,7 +51,7 @@ func (rt *_router) deleteMessage(w http.ResponseWriter, r *http.Request, ps http
 	err := rt.db.DeleteMessage(ctx.UserId, messageId)
 	if err != nil {
 		if err.Error() == RowNotFound {
-			w.WriteHeader(http.StatusNotFound)
+			errorJson(w, http.StatusNotFound, ErrCodeNotFound, "no result with the specified criteria")
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -77,9 +73,13 @@ func (rt *_router) commentMessage(w http.ResponseWriter, r *http.Request, ps htt
 	messageId := ps.ByName("messageId") // leggo l'id del messaggio dal path
 	reaction, err := rt.db.CreateReaction(emoji.Emoji, messageId, ctx.UserId)
 	if err != nil {
+		if err.Error() == "limit exceeded" {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "limit of reactions exeeded")
+			return
+		}
 		// controllo se l'errore è "not found", in caso ritorno 400
 		if err.Error() == RowNotFound {
-			w.WriteHeader(http.StatusBadRequest)
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -100,7 +100,7 @@ func (rt *_router) commentMessage(w http.ResponseWriter, r *http.Request, ps htt
 func (rt *_router) uncommentMessage(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	emoji := r.URL.Query().Get("emoji")
 	if emoji == "" {
-		http.Error(w, "missing emoji", http.StatusNotFound)
+		errorJson(w, http.StatusNotFound, ErrCodeNotFound, "missing emoji")
 		return
 	}
 	messageId := ps.ByName("messageId") // leggo l'id del messaggio dal path
