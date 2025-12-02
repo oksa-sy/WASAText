@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -14,7 +13,6 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 	conversations, err := rt.db.GetAllConversations(ctx.UserId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
 		return
 	}
 	conversationReuslts := make([]Conversation, 0)
