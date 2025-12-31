@@ -8,19 +8,19 @@ import (
 	"github.com/oksa-sy/WASAText/service/api/reqcontext"
 )
 
-// inoltrare un messaggio in una conversazione: id messaggio nek path, id conversazione nel requestbody
+// inoltrare un messaggio in una conversazione: id messaggio nek path, id utente nel requestbody
 func (rt *_router) forwardMessage(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	var conversationId struct {
-		ConversationId string `json:"conversationId"`
+	var userId struct {
+		UserId string `json:"id"`
 	}
-	// controllo se il json è corrotto e metto il contenuto in conversationId
-	err := json.NewDecoder(r.Body).Decode(&conversationId)
+	// controllo se il json è corrotto e metto il contenuto in userId
+	err := json.NewDecoder(r.Body).Decode(&userId)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	messageId := ps.ByName("messageId") // leggo l'id del messaggio dal path
-	message, err := rt.db.ForwardMessage(ctx.UserId, conversationId.ConversationId, messageId)
+	message, err := rt.db.ForwardMessage(ctx.UserId, userId.UserId, messageId)
 	if err != nil {
 		// controllo se l'errore è "not found", in quel caso ritorno un 404
 		if err.Error() == RowNotFound {

@@ -27,14 +27,18 @@ type Conversation struct {
 	Photo     string
 	TimeStamp time.Time
 	Preview   string
+	IsGroup   bool
 }
 
 type Message struct {
-	Id        string
-	Content   string
-	Username  string
-	TimeStamp time.Time
-	Status    Status
+	Id             string
+	Content        string
+	Username       string
+	TimeStamp      time.Time
+	Status         Status
+	Reactions      []Reaction
+	ReplyToId      string
+	ReplyToContent string
 }
 
 type Group struct {

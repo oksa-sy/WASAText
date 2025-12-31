@@ -15,7 +15,7 @@ func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) 
 	// con una sottoquery recupero l'id dell'ultimo messaggio inviato nella conversazione
 	// raggruppo per id della conversazione per eleminare duplicati
 	// ritorno il risultato ordinato in ordine cronologico inverso
-	conversations, err := db.c.Query(`SELECT c.id, COALESCE(c.name, u.username), COALESCE(c.photo, u.photo), m.timestamp, m.content
+	conversations, err := db.c.Query(`SELECT c.id, COALESCE(c.name, u.username), COALESCE(c.photo, u.photo), m.timestamp, m.content, c.is_group
     									FROM conversations c
     									JOIN participants p1 ON c.id = p1.conversation_id
     									LEFT JOIN participants p2 ON c.id = p2.conversation_id AND p2.user_id != p1.user_id
@@ -37,7 +37,7 @@ func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) 
 		// per considerare il caso in cui timestamp e content sono NULL
 		var dbTime sql.NullTime
 		var dbContent sql.NullString
-		err := conversations.Scan(&conversation.Id, &conversation.Name, &conversation.Photo, &dbTime, &dbContent)
+		err := conversations.Scan(&conversation.Id, &conversation.Name, &conversation.Photo, &dbTime, &dbContent, &conversation.IsGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -61,10 +61,32 @@ func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) 
 // creo una conversazione 1a1 con l'utente desiderato
 func (db *appdbimpl) CreateNewConversation(participantId string, userId string) (Conversation, error) {
 	conversation := Conversation{}
+	// controllo se esiste gia una chat con quell'utente
+	var convId string
+	err := db.c.QueryRow(`SELECT c.id FROM participants p1, participants p2, conversations c WHERE p1.user_id = ? AND p2.user_id = ? AND p1.conversation_id = p2.conversation_id AND c.id = p1.conversation_id AND c.is_group = false`, participantId, userId).Scan(&convId)
+	// se esiste recupero i dati del partecipante e ritorno la conversazione
+	if err == nil {
+		var username string
+		var photo string
+		err = db.c.QueryRow(`SELECT username, photo FROM users WHERE id = ?`, participantId).Scan(&username, &photo)
+		if err != nil {
+			return conversation, err
+		}
+		conversation = Conversation{
+			Id:    convId,
+			Name:  username,
+			Photo: photo,
+		}
+		return conversation, nil
+	}
+	// se si verifica un errore diverso da errnorows lo ritorno, senno creo la nuova chat
+	if !errors.Is(err, sql.ErrNoRows) {
+		return conversation, err
+	}
 	// controllo che esiste un utente con quell'id
 	var username string
 	var photo string
-	err := db.c.QueryRow(`SELECT username, photo FROM users WHERE id = ?`, participantId).Scan(&username, &photo)
+	err = db.c.QueryRow(`SELECT username, photo FROM users WHERE id = ?`, participantId).Scan(&username, &photo)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return conversation, errors.New(RowNotFound)
@@ -160,7 +182,7 @@ func (db *appdbimpl) CreateMessage(conversationId string, userId string, content
 }
 
 func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Message, error) {
-	messageReuslts := make([]Message, 0)
+	messageResults := make([]Message, 0)
 	// controllo che l'utente faccia parte della conversazione
 	var user string
 	err := db.c.QueryRow(`SELECT user_id FROM participants WHERE user_id = ? and conversation_id = ?`, userId, conversationId).Scan(&user)
@@ -176,7 +198,7 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 		return nil, err
 	}
 	// lista dei messaggi in ordine cronologico inverso
-	messages, err := db.c.Query(`SELECT m.id, u.username, m.content, m.timestamp FROM messages m, users u WHERE m.conversation_id = ? and u.id = m.sender_id ORDER BY timestamp desc`, conversationId)
+	messages, err := db.c.Query(`SELECT m.id, u.username, m.content, m.timestamp, m.status, m.reply_to FROM messages m, users u WHERE m.conversation_id = ? and u.id = m.sender_id ORDER BY timestamp desc`, conversationId)
 	if err != nil {
 		return nil, err
 	}
@@ -184,15 +206,43 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 	// costruisco la struct risultate per ogni riga risultante dalla select
 	for messages.Next() {
 		var message Message
-		err := messages.Scan(&message.Id, &message.Username, &message.Content, &message.TimeStamp)
+		var replyToId sql.NullString
+		err := messages.Scan(&message.Id, &message.Username, &message.Content, &message.TimeStamp, &message.Status, &replyToId)
 		if err != nil {
 			return nil, err
 		}
-		// aggiungo il messaggio al risultato finale
-		messageReuslts = append(messageReuslts, message)
+		// se è in risposta a un altro messaggio recupero il contenuto
+		if replyToId.Valid {
+			message.ReplyToId = replyToId.String
+			// gestione errore se il messaggio padre è stato cancellato
+			var replyContent string
+			err = db.c.QueryRow(`SELECT content FROM messages WHERE id = ?`, message.ReplyToId).Scan(&replyContent)
+			if err == nil {
+				// se tutto ok assegno il contenuto
+				message.ReplyToContent = replyContent
+			} else if err != sql.ErrNoRows {
+				return nil, err
+			}
+		}
+		//recupero le reazioni su quel messaggio e il nome di chi le ha mandate
+		reactionResults, err := db.c.Query(`SELECT r.reaction, u.username FROM reactions r, users u WHERE r.message_id = ? AND r.user_id = u.id`, message.Id)
+		if err != nil {
+			return nil, err
+		}
+		message.Reactions = make([]Reaction, 0)
+		for reactionResults.Next() {
+			var r Reaction
+			err := reactionResults.Scan(&r.Emoji, &r.Username)
+			if err != nil {
+				return nil, err
+			}
+			message.Reactions = append(message.Reactions, r)
+		}
+		reactionResults.Close()
+		messageResults = append(messageResults, message)
 	}
 	if err = messages.Err(); err != nil {
 		return nil, err
 	}
-	return messageReuslts, nil
+	return messageResults, nil
 }

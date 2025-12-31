@@ -8,24 +8,18 @@ import (
 )
 
 // inoltrare il messaggio in una conversazione: prendo i dati nel messaggio originale e li aggiungo in una nuova riga con la conversazione specificata
-func (db *appdbimpl) ForwardMessage(userId string, conversationId string, messageId string) (Message, error) {
+func (db *appdbimpl) ForwardMessage(userId string, participantId string, messageId string) (Message, error) {
 	message := Message{}
-	// controllo che l'utente partecipa alla conversazione specificata e se esiste
-	var exists int
-	err := db.c.QueryRow(`SELECT 1 FROM participants WHERE user_id = ? and conversation_id = ?`, userId, conversationId).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return message, errors.New(RowNotFound)
-		}
-		return message, err
-	}
 	// controllo che il messaggio esiste e che l'untente faccia parte di quella conversazione, prendo il contenuto
 	var content string
-	err = db.c.QueryRow(`SELECT m.content FROM messages m, participants p WHERE m.id = ? and p.conversation_id = m.conversation_id and p.user_id = ?`, messageId, userId).Scan(&content)
+	conv, err := db.CreateNewConversation(participantId, userId)
+	convId := conv.Id
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return message, errors.New(RowNotFound)
-		}
+		return message, err
+	}
+	// recupero il contenuto del messaggio solo se l'utente fa parte di quella conversazione
+	err = db.c.QueryRow(`SELECT m.content FROM messages m, participants p WHERE m.id = ? AND m.conversation_id = p.conversation_id AND p.user_id = ?`, messageId, userId).Scan(&content)
+	if err != nil {
 		return message, err
 	}
 	// creo il nuovo messaggio nella conversaione specificata con gli stessi dati dell'originale
@@ -34,7 +28,7 @@ func (db *appdbimpl) ForwardMessage(userId string, conversationId string, messag
 		return message, err
 	}
 	currentTime := globaltime.Now()
-	_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, status) VALUES (?, ?, ?, ?, ?, 'recieved')", forwardedMessageId, conversationId, userId, content, currentTime)
+	_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, status) VALUES (?, ?, ?, ?, ?, 'recieved')", forwardedMessageId, convId, userId, content, currentTime)
 	if err != nil {
 		return message, err
 	}

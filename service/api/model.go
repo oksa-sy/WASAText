@@ -69,6 +69,7 @@ type Conversation struct {
 	Photo     string    `json:"photo"`
 	TimeStamp time.Time `json:"timestamp"`
 	Preview   string    `json:"preview"`
+	IsGroup   bool      `json:"isGroup,omitempty"`
 }
 
 type CreateMessage struct {
@@ -77,12 +78,14 @@ type CreateMessage struct {
 }
 
 type Message struct {
-	Id        string     `json:"id"`
-	Content   string     `json:"content"`
-	Username  string     `json:"username"`
-	TimeStamp time.Time  `json:"timestamp"`
-	Reaction  []Reaction `json:"reaction,omitempty"`
-	Status    Status     `json:"status,omitempty"`
+	Id             string     `json:"id"`
+	Content        string     `json:"content"`
+	Username       string     `json:"username"`
+	TimeStamp      time.Time  `json:"timestamp"`
+	Reaction       []Reaction `json:"reaction,omitempty"`
+	Status         Status     `json:"status,omitempty"`
+	ReplyToId      string     `json:"replyToId,omitempty"`
+	ReplyToContent string     `json:"replyToContent,omitempty"`
 }
 
 type Group struct {

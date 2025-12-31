@@ -23,6 +23,7 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 			Photo:     conversation.Photo,
 			TimeStamp: conversation.TimeStamp,
 			Preview:   conversation.Preview,
+			IsGroup:   conversation.IsGroup,
 		}
 		conversationReuslts = append(conversationReuslts, c)
 	}
@@ -93,11 +94,13 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 		return
 	}
 	resultMessage := Message{
-		Id:        message.Id,
-		Content:   message.Content,
-		Username:  message.Username,
-		TimeStamp: message.TimeStamp,
-		Status:    Status(message.Status),
+		Id:             message.Id,
+		Content:        message.Content,
+		Username:       message.Username,
+		TimeStamp:      message.TimeStamp,
+		Status:         Status(message.Status),
+		ReplyToId:      message.ReplyToId,
+		ReplyToContent: message.ReplyToContent,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -121,11 +124,22 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 	}
 	messageReuslts := make([]Message, 0)
 	for _, message := range messages {
+		reactions := make([]Reaction, 0)
+		for _, r := range message.Reactions {
+			reactions = append(reactions, Reaction{
+				Emoji:    r.Emoji,
+				Username: r.Username,
+			})
+		}
 		m := Message{
-			Id:        message.Id,
-			Content:   message.Content,
-			Username:  message.Username,
-			TimeStamp: message.TimeStamp,
+			Id:             message.Id,
+			Content:        message.Content,
+			Username:       message.Username,
+			TimeStamp:      message.TimeStamp,
+			Status:         Status(message.Status),
+			Reaction:       reactions,
+			ReplyToId:      message.ReplyToId,
+			ReplyToContent: message.ReplyToContent,
 		}
 		messageReuslts = append(messageReuslts, m)
 	}

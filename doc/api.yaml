@@ -489,10 +489,10 @@ paths:
           application/json:
             schema:
               type: object
-              description: id of the conversation where the message is forwarded
+              description: id of the user to whom the message is forwarded
               properties:
-                conversationId:
-                  $ref: '#/components/schemas/ConversationID'
+                id:
+                  $ref: '#/components/schemas/Identifier'
               required:
                 - conversationId
       responses:
@@ -671,6 +671,8 @@ components:
           $ref: "#/components/schemas/Timestamp"
         preview:
           $ref: "#/components/schemas/Content"
+        isGroup: 
+          type: boolean
       required:
         - name
         - photo
@@ -719,6 +721,11 @@ components:
             $ref: '#/components/schemas/Reaction'
         status:
           $ref: "#/components/schemas/Status"
+        replyToId:
+          $ref: "#/components/schemas/MessageID"
+        replyToContent:
+          $ref: "#/components/schemas/Content"
+
       required:
         - content
         - timestamp
