@@ -12,7 +12,7 @@ export default {
 			new_username: null, //nuovo nome utente scelto
 			current_username: null,
 			user_photo: null,
-			//conversazione aperta
+			//conversazioni
 			conv_open: false,
 			conv_id: null,
 			participant_id: null,
@@ -26,7 +26,6 @@ export default {
 			selected_reaction: null,
 			reply_to: null,
 			msg_forward: null,
-			search_forward_in: null,
 			//gruppi
 			new_group: false,
 			members: [],
@@ -35,6 +34,7 @@ export default {
 			edit_profile: false,
 			group_photo: null,
 			group_new_name: null,
+			add_to_group: false,
 		}
 	},
 	methods: {
@@ -53,26 +53,10 @@ export default {
     	},
 		logout() {
 			localStorage.removeItem("id");
-			this.myid = null;
+			localStorage.removeItem("username");
+			localStorage.removeItem("photo");
 			this.$router.push("/session");
     	},
-		// ! NON FUNZIONA, DA RIVEDERE
-		async refresh() {
-			this.loading = true;
-			this.errormsg = null;
-			let token = localStorage.getItem("id");
-			try {
-				let response = await this.$axios.get("/", {
-					headers: {
-                        "Authorization": "Bearer " + token
-                    }
-				});
-				this.some_data = response.data;
-			} catch (e) {
-				this.errormsg = e.toString();
-			}
-			this.loading = false;
-		},
 		//ricerca utenti
 		async search() {
 			this.errormsg = null;
@@ -90,6 +74,20 @@ export default {
 			this.search_data = response.data
 			// elimino l'utente loggato dai risultati di ricerca 
 			this.search_data = this.search_data.filter(user => user.identifier != token);
+			// se sto cercando di inoltrare un messaggio includo nei risultati della ricerca anche i gruppi che corrispondono a quel nome
+			if (this.msg_forward) {
+				this.conv_groups = [];
+				let conv_groups = this.conversations
+					.filter(conv => conv.isGroup && conv.name.toLowerCase().includes(this.search_in.toLowerCase())).map(conv => ({
+						identifier: conv.id, 
+						username: conv.name, 
+						photo: conv.photo,}));
+				// aggiungo i gruppi al risultato della ricerca 
+				for (const c of conv_groups){
+					this.search_data.push(c);
+				}
+			}
+			
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -120,6 +118,7 @@ export default {
 					}
         		); 
 			this.user_photo = response.data.photo;
+			localStorage.setItem("photo", this.user_photo);
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -143,6 +142,7 @@ export default {
 					}
         		); 
 				this.current_username = this.new_username;
+				localStorage.setItem("username", this.new_username);
 				this.new_username = null;
 			//controllo errori
 			}catch (e) {
@@ -174,7 +174,8 @@ export default {
         		); 
 			this.conv_open = true;  
 			this.conv_id = response.data.id   
-			await this.listMessages(this.conv_id);                                                                                             
+			await this.listMessages(this.conv_id);  
+			await this.listConversations();                                                                                           
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -193,6 +194,7 @@ export default {
 			this.conv_open = true;
 			this.msgtext = null;
 			await this.listMessages(conv.id);
+			await this.listConversations();
 		},
 		async sendMessage(){
 			this.errormsg = null;
@@ -220,6 +222,7 @@ export default {
 			this.reply_to = null;
 			this.msgtext = null;
 			await this.listMessages(this.conv_id);
+			await this.listConversations();
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -287,6 +290,8 @@ export default {
         		); 
 			//elimino il messaggio dalla lista locale
 			this.messages = this.messages.filter(msg => msg.id !== msg_id);
+			await this.listMessages(this.conv_id);
+			await this.listConversations();
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -309,6 +314,7 @@ export default {
 						}
 					}
         		); 
+			await this.listMessages(this.conv_id);
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -357,6 +363,8 @@ export default {
 						},
 					}); 
 			this.msg_forward = null;
+			await this.listMessages(this.conv_id);
+			await this.listConversations();
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -368,8 +376,6 @@ export default {
 		},
 		async newGroup(){ 
 			this.errormsg = null;
-			this.new_group = false;
-			this.step = 1;
 			try {
 				//effettua chiamata al server
                 let token = localStorage.getItem("id");
@@ -474,6 +480,31 @@ export default {
                     this.errormsg = e.response.data;
                 }   
 			}
+		},
+		async addToGroup(userId){
+			this.errormsg = null;
+			try {
+				//effettua chiamata al server
+                let token = localStorage.getItem("id");
+                let response = await this.$axios.post("/groups/" + this.conv_id  + "/members",
+            		{userId: userId},
+					{
+						headers: {
+							"Authorization": "Bearer " + token
+						}
+					}
+        		); 
+				this.add_to_group = false;
+				this.search_data = null; 
+				this.search_in = null;  
+			//controllo errori
+			}catch (e) {
+				if (e.response.data.message) {
+                    this.errormsg = e.response.data.message; 
+                } else {
+                    this.errormsg = e.response.data;
+                }   
+			}
 		}
 	},
 	mounted() {
@@ -481,7 +512,10 @@ export default {
 		if (username) {
 			this.current_username = username;
 		}
-		this.refresh();
+		let photo = localStorage.getItem("photo");
+    	if (photo) {
+        	this.user_photo = photo;
+    	}
 		this.listConversations();
 	}
 }
@@ -498,13 +532,13 @@ export default {
 				</span>
 				<div class="d-flex gap-2 position-relative">
 					<!-- * ricerca utenti -->
-					<input v-if="!msg_forward && !new_group" type="text" placeholder="Search User.." v-model="search_in">
-					<button v-if="!msg_forward  && !new_group" type="button" class="btn btn-sm btn-outline-primary" @click="search">
+					<input v-if="!msg_forward && !new_group && !add_to_group" type="text" placeholder="Search User.." v-model="search_in">
+					<button v-if="!msg_forward  && !new_group && !add_to_group" type="button" class="btn btn-sm btn-outline-primary" @click="search">
 						➜
 					</button>
 					<!-- pulsante per il profilo modale -->
-					<img v-if="user_photo" :src="'http://localhost:3000/images/' + user_photo.replace('./images/', '').replace('images/', '')" class="rounded-circle shadow-sm" @click="show_profile = true" style="width: 45px; height: 45px; object-fit: cover; cursor: pointer;">
-					<button v-else type="button" class="btn bg-primary rounded-circle text-white d-flex justify-content-center align-items-center shadow-sm" ref="profileButton" style="width: 45px; height: 45px;" @click="show_profile = true">
+					<img v-if="user_photo" :src="'http://localhost:3000' + user_photo" class="rounded-circle shadow-sm" @click="show_profile = true" style="width: 45px; height: 45px; object-fit: cover; cursor: pointer;">
+					<button v-else type="button" class="btn bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center shadow-sm" ref="profileButton" style="width: 45px; height: 45px;" @click="show_profile = true">
 					</button>	
 					<!-- * popup si attiva se è stato schiacciato il pulsante -->
 					<div v-if="show_profile" class="modal fade show" style="display: block;" aria-modal="true" role="dialog">
@@ -519,8 +553,8 @@ export default {
 									<!-- sezione foto e pulsante per cambiarla -->
 									<div class="d-flex flex-column gap-2 text-start">
 										<!-- deve recuperare il nome del file scelto come input -->	
-										<img v-if="user_photo" :src="'http://localhost:3000/images/' + user_photo.replace('./images/', '').replace('images/', '')" class="rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
-										<span v-else class="bg-primary rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="width: 80px; height: 80px;">
+										<img v-if="user_photo" :src="'http://localhost:3000' + user_photo" class="rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
+										<span v-else class="bg-secondary rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="width: 80px; height: 80px;">
 										</span>
 										<input type="file" accept="image/*" ref="photoInput" style="display: none" @change="changePhoto">
 										<button type="button" class="btn btn-secondary btn-sm" @click="$refs.photoInput.click()">Upload</button>
@@ -537,17 +571,14 @@ export default {
 							</div>
 						</div>
 					</div>
-					<button type="button" class="btn btn-sm btn-outline-secondary" @click="refresh">
-						Refresh
-					</button>
 					<button class="btn btn-danger btn-sm" @click="logout">
 						Logout
 					</button>
 					<!-- * lista degli utenti sotto la barra di ricerca -->
-					<div v-if="!msg_forward  && !new_group" class="list-group position-absolute shadow w-100 start-0 search-list" style="max-height: 300px; overflow-y: auto;">
+					<div v-if="!msg_forward  && !new_group && !add_to_group" class="list-group position-absolute shadow w-100 start-0 search-list" style="max-height: 300px; overflow-y: auto;">
 						<button v-for="user in search_data" :key="user.identifier" class="list-group-item list-group-item-action d-flex align-items-center" @click="startChat(user)">
-							<img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm"  style="width: 40px; height: 40px;">
-							<div v-else class="bg-primary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
+							<img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm me-3"  style="width: 40px; height: 40px;">
+							<div v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
 								style="width: 40px; height: 40px;"></div>
 							<span class="fw-bold">
 								{{user.username}}
@@ -583,7 +614,7 @@ export default {
 					<div class="flex-grow-1 overflow-auto ">
 						<div  v-for="conv in conversations" :key="conv.id" class="list-group-item list-group-item-action d-flex align-items-center m-3 border-bottom" @click="openChat(conv)" style="cursor: pointer;">
 							<img v-if="conv.photo" :src="'http://localhost:3000' + conv.photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center m-1 flex-shrink-0"  style="width: 40px; height: 40px;">
-							<div v-else class="bg-primary rounded-circle d-flex justify-content-center align-items-center m-1 flex-shrink-0" 
+							<div v-else class="bg-secondary rounded-circle d-flex justify-content-center align-items-center m-1 flex-shrink-0" 
 								style="width: 40px; height: 40px;"></div>
 							<div class ="d-flex flex-column overflow-hidden">
 								<span class="fw-bold">
@@ -594,8 +625,8 @@ export default {
 									<span class="text-truncate w-50 text-muted">
 										{{ conv.preview }}
 									</span>
-									<span class="opacity-75">
-										{{ conv.timestamp.slice(0, 16) }}
+									<span v-if="conv.timestamp.slice(0, 16) !== '0001-01-01T00:00'" class="opacity-75">
+										{{ conv.timestamp.slice(11, 16)}} {{ conv.timestamp.slice(0, 10)}} 
 									</span>
 								</div>
 							</div>
@@ -607,12 +638,12 @@ export default {
 					<!-- profilo partecipante: foto e nome -->
 					<div v-if="conv_open" class="p-3 border-bottom shadow-sm d-flex align-items-center">
 						<img v-if="participant_photo" :src="'http://localhost:3000' + participant_photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center me-3 flex-shrink-0"  style="width: 50px; height: 50px;">
-						<div v-else class="bg-primary rounded-circle d-flex me-3 flex-shrink-0" 
+						<div v-else class="bg-secondary rounded-circle d-flex me-3 flex-shrink-0" 
 							style="width: 50px; height: 50px;"></div>
 						<h3>{{ participant_name }}</h3>
 						<div v-if="is_group" class="ms-auto d-flex gap-2">
 							<button type="button" class="btn btn-outline-secondary" @click="edit_profile=true">Edit</button>
-							<button type="button" class="btn btn-outline-primary">+ Member</button>
+							<button type="button" class="btn btn-outline-primary" @click="add_to_group=true">+ Member</button>
 							<button type="button" class="btn btn-outline-danger" @click="leave">Leave</button>
 						</div>
 					</div>
@@ -656,7 +687,7 @@ export default {
 								<!-- data e ora di invio -->
 								<div class="d-flex justify-content-end">
 									<div class="text-end opacity-75 me-3" style="font-size: 0.7rem;">
-										{{ msg.timestamp.slice(0, 16) }}
+										{{ msg.timestamp.slice(11, 16)}} {{ msg.timestamp.slice(0, 10)}} 
 									</div>
 									<!-- una spunta ricevuto, due letto, lo mostro solo all'utente loggato -->
 									<div v-if="current_username == msg.username">
@@ -670,10 +701,10 @@ export default {
 											{{ reaction.emoji }} 
 											<!-- se c'e un messaggio e reazione selezionate mostro l'opzione per eliminare la reazione o una x per annullare -->
 											<div v-if="selected_reaction && selected_reaction.msg_id === msg.id && selected_reaction.emoji === reaction.emoji" class="d-flex gap-1">
-												<button type="button" class="btn btn-sm btn-danger" @click.stop="removeReactions(msg.id, reaction.emoji); selected_reaction = null">
+												<button v-if="reaction.username === current_username" type="button" class="btn btn-sm btn-danger" @click.stop="removeReactions(msg.id, reaction.emoji); selected_reaction = null">
 													Delete
 												</button>
-												<button type="button" class="btn-close" @click.stop="selected_reaction = null"></button>
+												<button v-if="reaction.username === current_username" type="button" class="btn-close" @click.stop="selected_reaction = null"></button>
 											</div>
 										</span>
 									</div>
@@ -698,8 +729,37 @@ export default {
 								<div class="modal-body d-flex">
 									<div class="list-group w-100" style="max-height: 300px; overflow-y: auto;">
 										<button v-for="user in search_data" :key="user.identifier" class="list-group-item list-group-item-action d-flex align-items-center" @click="forward(user.identifier)">
+											<img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm me-3"  style="width: 40px; height: 40px;">
+											<div v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
+												style="width: 40px; height: 40px;"></div>
+											<span class="fw-bold">
+												{{user.username}}
+											</span>
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<!-- aggiungere un membro al gruppo -->
+					<div v-if="add_to_group" class="modal show" style="display: block;" tabindex="-1" role="dialog">
+						<div class="modal-dialog modal-dialog-centered">
+							<div class="modal-content">
+								<div class="modal-header">
+									<!-- input ricerca -->
+									<h5 class="m-3">Add Member: </h5>
+									<input type="text" placeholder="Search User.." v-model="search_in">
+									<button type="button" class="btn btn-sm btn-outline-primary me-3" @click="search">
+										➜
+									</button>
+									<button type="button" class="btn-close" @click="add_to_group=false; search_in=null; search_data = null;"></button>
+								</div>
+								<!-- risultati ricerca, se premi uno dei risultati lo aggiungo al gruppo -->	
+								<div class="modal-body d-flex flex-column">
+									<div class="list-group w-100" style="max-height: 300px; overflow-y: auto;">
+										<button type="button" v-for="user in search_data" :key="user.identifier" class="list-group-item list-group-item-action d-flex align-items-center" @click="addToGroup(user.identifier)">
 											<img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm"  style="width: 40px; height: 40px;">
-											<div v-else class="bg-primary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
+											<div v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
 												style="width: 40px; height: 40px;"></div>
 											<span class="fw-bold">
 												{{user.username}}
@@ -723,7 +783,7 @@ export default {
 									<div class="d-flex flex-column gap-2 text-start">
 										<!-- deve recuperare il nome del file scelto come input -->	
 										<img v-if="participant_photo" :src="'http://localhost:3000' + participant_photo" class="rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
-										<span v-else class="bg-primary rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="width: 80px; height: 80px;"></span>
+										<span v-else class="bg-secondary rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="width: 80px; height: 80px;"></span>
 										<input type="file" accept="image/*" ref="groupPhotoInput" style="display: none" @change="changeGroupPhoto">
 										<button type="button" class="btn btn-secondary btn-sm" @click="$refs.groupPhotoInput.click()">Upload</button>
 									</div>
@@ -761,7 +821,7 @@ export default {
 									<div v-if="step === 1" class="list-group w-100" style="max-height: 300px; overflow-y: auto;">
 										<button type="button" v-for="user in search_data" :key="user.identifier" class="list-group-item list-group-item-action d-flex align-items-center" :class="{active: members.includes(user.identifier)}" @click="addGroupMembers(user.identifier)">
 											<img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm"  style="width: 40px; height: 40px;">
-											<div v-else class="bg-primary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
+											<div v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
 												style="width: 40px; height: 40px;"></div>
 											<span class="fw-bold">
 												{{user.username}}
@@ -820,14 +880,7 @@ export default {
 	}
 </style>
 
-
-<!-- cercare utenti
-aggiungere membro al gruppo -->	
-
 <!-- ! controllare: 
-si vede la foto profilo nella lista ricercs utenti
-foto e nome utenti non si vedono dopo il refresh
-caricare automanticamente la nuova chat o messaggio nella sezione chat
-aggiungere che il messaggio è stato inoltrato 
-quando si verifica un errore quando si crea il gruppo non si azzerano i membri 
-visualizzazione messaggi gruppo  -->
+visualizzazione messaggi gruppo
+per vedere la foto del profilo bisogna fare refresh  
+fare i linter -->

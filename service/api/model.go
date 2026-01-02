@@ -57,6 +57,7 @@ const (
 type User struct {
 	Id       string `json:"identifier"`
 	Username string `json:"username"`
+	Photo    string `json:"photo,omitempty"`
 }
 
 type StartConversation struct {

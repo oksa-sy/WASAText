@@ -79,6 +79,11 @@ func (db *appdbimpl) CreateReaction(reaction string, messageId string, userId st
 		}
 		return r, err
 	}
+	// controllo se la reazione da quell'utente gia esiste, se esiste elimino la precedente per inserire la nuova
+	_, err = db.c.Exec(`DELETE FROM reactions WHERE message_id = ? and user_id = ?`, messageId, userId)
+	if err != nil {
+		return r, err
+	}
 	// controllo il numero di reazioni del messaggio, se più di 100 errore
 	var numReactions int
 	err = db.c.QueryRow(`SELECT COUNT(*) FROM reactions WHERE message_id = ?`, messageId).Scan(&numReactions)

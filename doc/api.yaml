@@ -647,6 +647,11 @@ components:
           $ref: "#/components/schemas/Identifier"
         username:
           $ref: "#/components/schemas/Name"
+        photo:
+          $ref: "#/components/schemas/Photo"
+      required:
+        - identifier
+        - username
 
     CreateConversation:
       type: object

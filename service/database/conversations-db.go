@@ -63,7 +63,29 @@ func (db *appdbimpl) CreateNewConversation(participantId string, userId string) 
 	conversation := Conversation{}
 	// controllo se esiste gia una chat con quell'utente
 	var convId string
-	err := db.c.QueryRow(`SELECT c.id FROM participants p1, participants p2, conversations c WHERE p1.user_id = ? AND p2.user_id = ? AND p1.conversation_id = p2.conversation_id AND c.id = p1.conversation_id AND c.is_group = false`, participantId, userId).Scan(&convId)
+	var convName string
+	var convPhoto sql.NullString
+	// controllo se la conversazione è un gruppo di cui l'utente fa parte
+	err := db.c.QueryRow(`SELECT c.id, c.name, c.photo FROM participants p, conversations c WHERE p.user_id = ? AND p.conversation_id = ? AND c.id = ? AND c.is_group = 1`, userId, participantId, participantId).Scan(&convId, &convName, &convPhoto)
+	// se esiste ritorno la conversazione
+	if err == nil {
+		finalPhoto := ""
+		if convPhoto.Valid {
+			finalPhoto = convPhoto.String
+		}
+		conversation = Conversation{
+			Id:    convId,
+			Name:  convName,
+			Photo: finalPhoto,
+		}
+		return conversation, nil
+	}
+	// se si verifica un errore diverso da errnorows lo ritorno, senno creo la nuova chat
+	if !errors.Is(err, sql.ErrNoRows) {
+		return conversation, err
+	}
+	// controllo se è una chat 1-1
+	err = db.c.QueryRow(`SELECT c.id FROM participants p1, participants p2, conversations c WHERE p1.user_id = ? AND p2.user_id = ? AND p1.conversation_id = p2.conversation_id AND c.id = p1.conversation_id AND c.is_group = 0`, participantId, userId).Scan(&convId)
 	// se esiste recupero i dati del partecipante e ritorno la conversazione
 	if err == nil {
 		var username string

@@ -29,6 +29,7 @@ func (rt *_router) searchUsers(w http.ResponseWriter, r *http.Request, ps httpro
 		u := User{
 			Id:       user.Id,
 			Username: user.Username,
+			Photo:    user.Photo,
 		}
 		finalResult = append(finalResult, u)
 	}
