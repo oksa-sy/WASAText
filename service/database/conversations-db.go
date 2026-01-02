@@ -242,11 +242,11 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 			if err == nil {
 				// se tutto ok assegno il contenuto
 				message.ReplyToContent = replyContent
-			} else if err != sql.ErrNoRows {
+			} else if !errors.Is(err, sql.ErrNoRows) {
 				return nil, err
 			}
 		}
-		//recupero le reazioni su quel messaggio e il nome di chi le ha mandate
+		// recupero le reazioni su quel messaggio e il nome di chi le ha mandate
 		reactionResults, err := db.c.Query(`SELECT r.reaction, u.username FROM reactions r, users u WHERE r.message_id = ? AND r.user_id = u.id`, message.Id)
 		if err != nil {
 			return nil, err
@@ -259,6 +259,9 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 				return nil, err
 			}
 			message.Reactions = append(message.Reactions, r)
+		}
+		if err = reactionResults.Err(); err != nil {
+			return nil, err
 		}
 		reactionResults.Close()
 		messageResults = append(messageResults, message)

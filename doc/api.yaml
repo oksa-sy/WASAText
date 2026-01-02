@@ -491,7 +491,7 @@ paths:
               type: object
               description: id of the user to whom the message is forwarded
               properties:
-                id:
+                conversationId:
                   $ref: '#/components/schemas/Identifier'
               required:
                 - conversationId
@@ -678,6 +678,7 @@ components:
           $ref: "#/components/schemas/Content"
         isGroup: 
           type: boolean
+          description: if the conversation is a group or not
       required:
         - name
         - photo

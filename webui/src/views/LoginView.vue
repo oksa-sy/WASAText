@@ -31,25 +31,25 @@ export default {
 </script>
 
 <template>
-    <div>
-        <nav class="navbar navbar-dark bg-dark fixed-top shadow">
-            <div class="container-fluid">
-                <span class="navbar-brand mb-0 h1 fw-bold bg-transparent">
-                    WASAText 💬
-                </span>
-            </div>
-        </nav>
-        <div class="d-flex justify-content-center align-items-center vh-100">
-            <div class="card p-4 shadow">
-                <h2 class="text-center mb-4">Login</h2>
-                <div class="mb-3">
-                    <input type="text" class="form-control" placeholder="username" v-model="username">
-                    <div v-if="errormsg" class="alert alert-danger">{{errormsg}}</div>
-                </div>
-                <button class="btn btn-primary w-100" @click="login">Sign In</button>
-            </div>
+  <div>
+    <nav class="navbar navbar-dark bg-dark fixed-top shadow">
+      <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1 fw-bold bg-transparent">
+          WASAText 💬
+        </span>
+      </div>
+    </nav>
+    <div class="d-flex justify-content-center align-items-center vh-100">
+      <div class="card p-4 shadow">
+        <h2 class="text-center mb-4">Login</h2>
+        <div class="mb-3">
+          <input v-model="username" type="text" class="form-control" placeholder="username">
+          <div v-if="errormsg" class="alert alert-danger">{{ errormsg }}</div>
         </div>
+        <button class="btn btn-primary w-100" @click="login">Sign In</button>
+      </div>
     </div>
+  </div>
 </template>
 
 <style>
