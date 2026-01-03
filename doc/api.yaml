@@ -731,7 +731,8 @@ components:
           $ref: "#/components/schemas/MessageID"
         replyToContent:
           $ref: "#/components/schemas/Content"
-
+        replyToUsername:
+          $ref: "#/components/schemas/Name"
       required:
         - content
         - timestamp

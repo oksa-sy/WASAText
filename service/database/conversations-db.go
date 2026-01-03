@@ -214,8 +214,9 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 		}
 		return nil, err
 	}
-	// segno i messaggi nella conversazione inviati dall'altro utente come letti
-	_, err = db.c.Exec("UPDATE messages SET status = 'read' WHERE conversation_id = ? and sender_id != ? and status = 'recieved'", conversationId, userId)
+	// conto i partecipanti alla conversazione
+	var participants int
+	err = db.c.QueryRow(`SELECT count(user_id) FROM participants WHERE conversation_id = ?`, conversationId).Scan(&participants)
 	if err != nil {
 		return nil, err
 	}
@@ -225,49 +226,76 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 		return nil, err
 	}
 	defer messages.Close() // chiudo la ricerca per liberare la connessione
-	// costruisco la struct risultate per ogni riga risultante dalla select
+	// itero sui messaggi per salvarli in un array e liberare la connessione
 	for messages.Next() {
-		var message Message
+		var m Message
 		var replyToId sql.NullString
-		err := messages.Scan(&message.Id, &message.Username, &message.Content, &message.TimeStamp, &message.Status, &replyToId)
+		err := messages.Scan(&m.Id, &m.Username, &m.Content, &m.TimeStamp, &m.Status, &replyToId)
+		if err != nil {
+			messages.Close()
+			return nil, err
+		}
+		if replyToId.Valid {
+			m.ReplyToId = replyToId.String
+		}
+		messageResults = append(messageResults, m)
+	}
+	messages.Close()
+	if err = messages.Err(); err != nil {
+		return nil, err
+	}
+	// itero sui messaggi ottenuti
+	for i := range messageResults {
+		msg := &messageResults[i]
+		// segno che il messaggio è stato letto dall'utente
+		_, err = db.c.Exec("INSERT OR IGNORE INTO reads (message_id, user_id) VALUES (?, ?)", msg.Id, userId)
 		if err != nil {
 			return nil, err
 		}
+		// controllo se il messaggio riusulta letto da tutti i partecipanti della conversazione se si segno il messaggio come letto
+		var nReads int
+		err = db.c.QueryRow(`SELECT count(user_id) FROM reads WHERE message_id = ?`, msg.Id).Scan(&nReads)
+		if err != nil {
+			return nil, err
+		}
+		if nReads >= participants {
+			_, err = db.c.Exec("UPDATE messages SET status = 'read' WHERE conversation_id = ? and sender_id != ? and status = 'recieved' AND id = ?", conversationId, userId, msg.Id)
+			if err != nil {
+				return nil, err
+			}
+		}
 		// se è in risposta a un altro messaggio recupero il contenuto
-		if replyToId.Valid {
-			message.ReplyToId = replyToId.String
+		if msg.ReplyToId != "" {
 			// gestione errore se il messaggio padre è stato cancellato
+			var replyUsername string
 			var replyContent string
-			err = db.c.QueryRow(`SELECT content FROM messages WHERE id = ?`, message.ReplyToId).Scan(&replyContent)
+			err = db.c.QueryRow(`SELECT m.content, u.username FROM messages m, users u WHERE m.id = ? AND m.sender_id = u.id`, msg.ReplyToId).Scan(&replyContent, &replyUsername)
 			if err == nil {
 				// se tutto ok assegno il contenuto
-				message.ReplyToContent = replyContent
+				msg.ReplyToContent = replyContent
+				msg.ReplyToUsername = replyUsername
 			} else if !errors.Is(err, sql.ErrNoRows) {
 				return nil, err
 			}
 		}
 		// recupero le reazioni su quel messaggio e il nome di chi le ha mandate
-		reactionResults, err := db.c.Query(`SELECT r.reaction, u.username FROM reactions r, users u WHERE r.message_id = ? AND r.user_id = u.id`, message.Id)
+		reactionResults, err := db.c.Query(`SELECT r.reaction, u.username FROM reactions r, users u WHERE r.message_id = ? AND r.user_id = u.id`, msg.Id)
 		if err != nil {
 			return nil, err
 		}
-		message.Reactions = make([]Reaction, 0)
+		msg.Reactions = make([]Reaction, 0)
 		for reactionResults.Next() {
 			var r Reaction
 			err := reactionResults.Scan(&r.Emoji, &r.Username)
 			if err != nil {
 				return nil, err
 			}
-			message.Reactions = append(message.Reactions, r)
+			msg.Reactions = append(msg.Reactions, r)
 		}
 		if err = reactionResults.Err(); err != nil {
 			return nil, err
 		}
 		reactionResults.Close()
-		messageResults = append(messageResults, message)
-	}
-	if err = messages.Err(); err != nil {
-		return nil, err
 	}
 	return messageResults, nil
 }

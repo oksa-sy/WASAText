@@ -111,6 +111,13 @@ func New(db *sql.DB) (AppDatabase, error) {
 			FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
 			FOREIGN KEY (sender_id) REFERENCES users(id)
 		);
+		CREATE TABLE reads (
+			message_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			PRIMARY KEY (message_id, user_id),
+			FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		);
 		CREATE TABLE reactions (
 			message_id TEXT NOT NULL,
 			user_id TEXT NOT NULL,

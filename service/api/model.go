@@ -79,14 +79,15 @@ type CreateMessage struct {
 }
 
 type Message struct {
-	Id             string     `json:"id"`
-	Content        string     `json:"content"`
-	Username       string     `json:"username"`
-	TimeStamp      time.Time  `json:"timestamp"`
-	Reaction       []Reaction `json:"reaction,omitempty"`
-	Status         Status     `json:"status,omitempty"`
-	ReplyToId      string     `json:"replyToId,omitempty"`
-	ReplyToContent string     `json:"replyToContent,omitempty"`
+	Id              string     `json:"id"`
+	Content         string     `json:"content"`
+	Username        string     `json:"username"`
+	TimeStamp       time.Time  `json:"timestamp"`
+	Reaction        []Reaction `json:"reaction,omitempty"`
+	Status          Status     `json:"status,omitempty"`
+	ReplyToId       string     `json:"replyToId,omitempty"`
+	ReplyToContent  string     `json:"replyToContent,omitempty"`
+	ReplyToUsername string     `json:"replyToUsername,omitempty"`
 }
 
 type Group struct {

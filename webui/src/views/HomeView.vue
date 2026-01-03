@@ -37,17 +37,6 @@ export default {
 			add_to_group: false,
 		}
 	},
-	mounted() {
-		let username = localStorage.getItem("username");
-		if (username) {
-			this.current_username = username;
-		}
-		let photo = localStorage.getItem("photo");
-    	if (photo) {
-        	this.user_photo = photo;
-    	}
-		this.listConversations();
-	},
 	methods: {
 		addGroupMembers(user){
 			// se gia c'è lo tolgo (deselezione)
@@ -68,6 +57,31 @@ export default {
 			localStorage.removeItem("photo");
 			this.$router.push("/session");
     	},
+		//quando la pagina viene ricaraicata devo risalvare la foto nel local storage
+		async refresh() {
+			this.errormsg = null;
+			try {
+				//cerco gli utenti per ottenere l'utente loggato
+				let token = localStorage.getItem("id");
+				let response = await this.$axios.get("/users", {
+					params: {username: this.current_username},
+					headers: {
+						"Authorization": "Bearer " + token
+					}
+				});
+				//cerco l'utente loggato per ottenere la foto
+				let user = response.data.find(u => u.identifier == token);
+				this.user_photo = user.photo;
+				localStorage.setItem("photo", user.photo);
+			//controllo errori
+			}catch (e) {
+				if (e.response.data.message) {
+                    this.errormsg = e.response.data.message; 
+                } else {
+                    this.errormsg = e.response.data;
+                }   
+			}
+		},
 		//ricerca utenti
 		async search() {
 			this.errormsg = null;
@@ -98,7 +112,6 @@ export default {
 					this.search_data.push(c);
 				}
 			}
-			
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -208,6 +221,7 @@ export default {
 			this.is_group = conv.isGroup;
 			this.conv_open = true;
 			this.msgtext = null;
+			this.group_photo = null;
 			await this.listMessages(conv.id);
 			await this.listConversations();
 		},
@@ -466,6 +480,7 @@ export default {
 			// aggiorno subito la foto con quella nuova
 			this.participant_photo = response.data.photo;
 			this.edit_profile = false;
+			await this.listConversations();
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -525,7 +540,19 @@ export default {
                 }   
 			}
 		}
-	}
+	},
+	mounted() {
+		let username = localStorage.getItem("username");
+		if (username) {
+			this.current_username = username;
+		}
+		let photo = localStorage.getItem("photo");
+    	if (photo) {
+        	this.user_photo = photo;
+    	}
+		this.refresh();
+		this.listConversations();
+	},
 }
 </script>
 
@@ -661,18 +688,17 @@ export default {
           </div>
         </div>
         <!-- messaggi, se inviati dall'utente loggato sono verdi a destra altrimenti bianchi a sinistra -->
-        <div class="flex-grow-1 overflow-auto p-3 d-flex flex-column" style="background-color: #e5ddd5;">
+        <div class="flex-grow-1 overflow-auto p-3 d-flex flex-column" style="background-color: #D5DBE5;">
           <div class="chat-container">
             <div
               v-for="msg in messages" :key="msg.id" class="mb-2 p-2 rounded shadow-sm position-relative" :class="{
                 'bg-success text-white align-self-end': current_username === msg.username,
                 'bg-white text-dark align-self-start': current_username !== msg.username}"
-              style="max-width: 50%;"
-            >
+              style="max-width: 50%;">
               <span v-if="current_username !== msg.username && is_group" class="text-primary fw-bold" style="font-size: 0.80rem;;">
                 {{ msg.username }}:
               </span>
-              <button type="button" class="btn btn-sm dropdown-toggle position-absolute top-0 end-0 d-flex justify-content-center align-items-center text-reset" data-bs-toggle="dropdown" style="width: 10px; height: 20px; border: none;" />
+              <button type="button" class="btn btn-sm dropdown-toggle position-absolute top-0 end-0 d-flex justify-content-center align-items-center text-reset" data-bs-toggle="dropdown" style="width: 10px; height: 20px; border: none;"></button>
               <ul class="dropdown-menu">
                 <li><button class="dropdown-item" type="button" @click="reply_to={msg_id: msg.id, content: msg.content, sender: msg.username}">Reply</button></li>
                 <!-- mostro l'opzione di reazione solo sui messaggi inviati dall'altro utente e uso delle reazioni preselezionate-->
@@ -690,7 +716,7 @@ export default {
               <div v-if="msg.replyToId" class="p-2 bg-white border-start border-5 border-primary rounded d-flex justify-content-between align-items-center">
                 <div class="overflow-hidden">
                   <span class="text-primary fw-bold" style="font-size: 0.80rem;;">
-                    {{ msg.username }}
+                    {{ msg.replyToUsername }}
                   </span>
                   <span class="text-truncate d-block text-muted" style="max-width: 1000px; font-size: 0.9rem;">
                     {{ msg.replyToContent }}
@@ -718,7 +744,7 @@ export default {
                       <button v-if="react.username === current_username" type="button" class="btn btn-sm btn-danger" @click.stop="removeReactions(msg.id, react.emoji); selected_reaction = null">
                         Delete
                       </button>
-                      <button v-if="react.username === current_username" type="button" class="btn-close" @click.stop="selected_reaction = null" />
+                      <button v-if="react.username === current_username" type="button" class="btn-close" @click.stop="selected_reaction = null"/>
                     </div>
                   </span>
                 </div>
@@ -737,7 +763,7 @@ export default {
                 <button type="button" class="btn btn-sm btn-outline-primary me-3" @click="search">
                   ➜
                 </button>
-                <button type="button" class="btn-close" @click="msg_forward=null; search_in=null; search_data = null;" />
+                <button type="button" class="btn-close" @click="msg_forward=null; search_in=null; search_data = null;"/>
               </div>
               <!-- risultati ricerca, se premi un dei risultati inoltra il messaggio a quell'utente -->
               <div class="modal-body d-flex">
@@ -768,7 +794,7 @@ export default {
                 <button type="button" class="btn btn-sm btn-outline-primary me-3" @click="search">
                   ➜
                 </button>
-                <button type="button" class="btn-close" @click="add_to_group=false; search_in=null; search_data = null;" />
+                <button type="button" class="btn-close" @click="add_to_group=false; search_in=null; search_data = null;"/>
               </div>
               <!-- risultati ricerca, se premi uno dei risultati lo aggiungo al gruppo -->	
               <div class="modal-body d-flex flex-column">
@@ -777,8 +803,7 @@ export default {
                     <img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm" style="width: 40px; height: 40px;">
                     <div
                       v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
-                      style="width: 40px; height: 40px;"
-                    />
+                      style="width: 40px; height: 40px;"/>
                     <span class="fw-bold">
                       {{ user.username }}
                     </span>
@@ -832,7 +857,7 @@ export default {
                     ➜
                   </button>
                 </div>
-                <button type="button" class="btn-close" @click="new_group=false; search_in=null; search_data = null; members=[]; step=1" />
+                <button type="button" class="btn-close" @click="new_group=false; search_in=null; search_data = null; members=[]; step=1"/>
               </div>
               <!-- risultati ricerca, se premi uno dei risultati aggiunge quell'utente se non c'è gia altrimenti lo toglie, mostra uno stato active se selezionato -->	
               <div class="modal-body d-flex flex-column">
@@ -841,8 +866,7 @@ export default {
                     <img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm" style="width: 40px; height: 40px;">
                     <div
                       v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
-                      style="width: 40px; height: 40px;"
-                    />
+                      style="width: 40px; height: 40px;"/>
                     <span class="fw-bold">
                       {{ user.username }}
                     </span>
@@ -868,7 +892,7 @@ export default {
                 {{ reply_to.content }}
               </span>
             </div>
-            <button type="button" class="btn-close" @click="reply_to = null" />
+            <button type="button" class="btn-close" @click="reply_to = null"/>
           </div>
           <div class="p-2 bg-light border-top d-flex">
             <input v-if="conv_open" v-model="msgtext" type="text" class="form-control me-1" placeholder="Write a message...">
@@ -899,7 +923,3 @@ export default {
         overflow-y: auto;      /* scrollbar quando supera la lunghezza massima */
 	}
 </style>
-
-<!-- ! controllare: 
-visualizzazione messaggi gruppo
-fare i linter -->

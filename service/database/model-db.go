@@ -31,14 +31,15 @@ type Conversation struct {
 }
 
 type Message struct {
-	Id             string
-	Content        string
-	Username       string
-	TimeStamp      time.Time
-	Status         Status
-	Reactions      []Reaction
-	ReplyToId      string
-	ReplyToContent string
+	Id              string
+	Content         string
+	Username        string
+	TimeStamp       time.Time
+	Status          Status
+	Reactions       []Reaction
+	ReplyToId       string
+	ReplyToContent  string
+	ReplyToUsername string
 }
 
 type Group struct {

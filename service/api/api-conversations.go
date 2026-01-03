@@ -132,14 +132,15 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 			})
 		}
 		m := Message{
-			Id:             message.Id,
-			Content:        message.Content,
-			Username:       message.Username,
-			TimeStamp:      message.TimeStamp,
-			Status:         Status(message.Status),
-			Reaction:       reactions,
-			ReplyToId:      message.ReplyToId,
-			ReplyToContent: message.ReplyToContent,
+			Id:              message.Id,
+			Content:         message.Content,
+			Username:        message.Username,
+			TimeStamp:       message.TimeStamp,
+			Status:          Status(message.Status),
+			Reaction:        reactions,
+			ReplyToId:       message.ReplyToId,
+			ReplyToContent:  message.ReplyToContent,
+			ReplyToUsername: message.ReplyToUsername,
 		}
 		messageReuslts = append(messageReuslts, m)
 	}
