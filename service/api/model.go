@@ -65,29 +65,34 @@ type StartConversation struct {
 }
 
 type Conversation struct {
-	Id        string    `json:"id"`
-	Name      string    `json:"name"`
-	Photo     string    `json:"photo"`
-	TimeStamp time.Time `json:"timestamp"`
-	Preview   string    `json:"preview"`
-	IsGroup   bool      `json:"isGroup,omitempty"`
+	Id             string    `json:"id"`
+	Name           string    `json:"name"`
+	Photo          string    `json:"photo"`
+	TimeStamp      time.Time `json:"timestamp"`
+	Preview        string    `json:"preview"`
+	PreviewIsPhoto bool      `json:"previewIsPhoto"`
+	IsGroup        bool      `json:"isGroup,omitempty"`
 }
 
 type CreateMessage struct {
-	Content string `json:"content"`
+	Content string `json:"content,omitempty"`
 	ReplyTo string `json:"replyTo,omitempty"`
+	Photo   string `json:"photo,omitempty"`
 }
 
 type Message struct {
 	Id              string     `json:"id"`
-	Content         string     `json:"content"`
+	Content         string     `json:"content,omitempty"`
+	Photo           string     `json:"photo,omitempty"`
 	Username        string     `json:"username"`
 	TimeStamp       time.Time  `json:"timestamp"`
 	Reaction        []Reaction `json:"reaction,omitempty"`
 	Status          Status     `json:"status,omitempty"`
+	Forwarded       bool       `json:"forwarded,omitempty"`
 	ReplyToId       string     `json:"replyToId,omitempty"`
 	ReplyToContent  string     `json:"replyToContent,omitempty"`
 	ReplyToUsername string     `json:"replyToUsername,omitempty"`
+	ReplyToPhoto    string     `json:"replyToPhoto,omitempty"`
 }
 
 type Group struct {

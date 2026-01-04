@@ -1,8 +1,13 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/oksa-sy/WASAText/service/api/reqcontext"
@@ -18,12 +23,13 @@ func (rt *_router) getMyConversations(w http.ResponseWriter, r *http.Request, ps
 	conversationReuslts := make([]Conversation, 0)
 	for _, conversation := range conversations {
 		c := Conversation{
-			Id:        conversation.Id,
-			Name:      conversation.Name,
-			Photo:     conversation.Photo,
-			TimeStamp: conversation.TimeStamp,
-			Preview:   conversation.Preview,
-			IsGroup:   conversation.IsGroup,
+			Id:             conversation.Id,
+			Name:           conversation.Name,
+			Photo:          conversation.Photo,
+			TimeStamp:      conversation.TimeStamp,
+			Preview:        conversation.Preview,
+			PreviewIsPhoto: conversation.PreviewIsPhoto,
+			IsGroup:        conversation.IsGroup,
 		}
 		conversationReuslts = append(conversationReuslts, c)
 	}
@@ -72,19 +78,70 @@ func (rt *_router) createConversation(w http.ResponseWriter, r *http.Request, ps
 
 // invia um messaggio in una conversazione
 func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	newMessage := CreateMessage{}
-	err := json.NewDecoder(r.Body).Decode(&newMessage)
+	// limite grandezza 10MB
+	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	// leggo content e se è in risposta a un messaggio
+	content := r.FormValue("content")
+	replyTo := r.FormValue("replyTo")
+	// leggo il file
+	file, fileHeader, err := r.FormFile("photo")
+	var photoPath string
+	// se è presente un file, controllo che esso si tratta effettivamente di un immagine
+	if err == nil {
+		defer file.Close()
+		buff := make([]byte, 512)
+		_, err = file.Read(buff)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		filetype := http.DetectContentType(buff)
+		if filetype != "image/jpeg" && filetype != "image/png" {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid format: only jpeg and png allowed")
+			return
+		}
+		// riporto il cursore a inizio file
+		_, err = file.Seek(0, 0)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		// genero un nome univoco per il file
+		bytes := make([]byte, 8)
+		if _, err := rand.Read(bytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		fileId := hex.EncodeToString(bytes)
+		extension := filepath.Ext(fileHeader.Filename)
+		filename := fileId + extension
+		filePath := filepath.Join("./images", filename)
+		// salvo
+		dst, _ := os.Create(filePath)
+		defer dst.Close()
+		io.Copy(dst, file)
+		photoPath = "/images/" + filename
+	}
+	// controllo se manca anche il testo, in quel caso mando errore
+	if content == "" && photoPath == "" {
+		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "message cannot be empty")
+		return
+	}
+	newMessage := CreateMessage{}
+	newMessage.Content = content
+	newMessage.ReplyTo = replyTo
+	newMessage.Photo = photoPath
 	conversationId := ps.ByName("conversationId") // leggo l'id della conversazione dal path
 	// controllo che il messaggio non sia vuoto o più lungo di 1000 caratteri
-	if len(newMessage.Content) < 1 || len(newMessage.Content) > 1000 {
+	if newMessage.Content != "" && len(newMessage.Content) < 1 || len(newMessage.Content) > 1000 {
 		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "message content cannot be empty or greater then 1000 characters")
 		return
 	}
-	message, err := rt.db.CreateMessage(conversationId, ctx.UserId, newMessage.Content, newMessage.ReplyTo)
+	message, err := rt.db.CreateMessage(conversationId, ctx.UserId, newMessage.Content, newMessage.ReplyTo, newMessage.Photo)
 	if err != nil {
 		if err.Error() == RowNotFound {
 			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
@@ -94,13 +151,12 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 		return
 	}
 	resultMessage := Message{
-		Id:             message.Id,
-		Content:        message.Content,
-		Username:       message.Username,
-		TimeStamp:      message.TimeStamp,
-		Status:         Status(message.Status),
-		ReplyToId:      message.ReplyToId,
-		ReplyToContent: message.ReplyToContent,
+		Id:        message.Id,
+		Content:   message.Content,
+		Photo:     message.Photo,
+		Username:  message.Username,
+		TimeStamp: message.TimeStamp,
+		Status:    Status(message.Status),
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -134,13 +190,16 @@ func (rt *_router) getConversation(w http.ResponseWriter, r *http.Request, ps ht
 		m := Message{
 			Id:              message.Id,
 			Content:         message.Content,
+			Photo:           message.Photo,
 			Username:        message.Username,
 			TimeStamp:       message.TimeStamp,
 			Status:          Status(message.Status),
 			Reaction:        reactions,
+			Forwarded:       message.Forwarded,
 			ReplyToId:       message.ReplyToId,
 			ReplyToContent:  message.ReplyToContent,
 			ReplyToUsername: message.ReplyToUsername,
+			ReplyToPhoto:    message.ReplyToPhoto,
 		}
 		messageReuslts = append(messageReuslts, m)
 	}

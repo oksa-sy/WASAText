@@ -22,24 +22,28 @@ type User struct {
 }
 
 type Conversation struct {
-	Id        string
-	Name      string
-	Photo     string
-	TimeStamp time.Time
-	Preview   string
-	IsGroup   bool
+	Id             string
+	Name           string
+	Photo          string
+	TimeStamp      time.Time
+	Preview        string
+	PreviewIsPhoto bool
+	IsGroup        bool
 }
 
 type Message struct {
 	Id              string
 	Content         string
+	Photo           string
 	Username        string
 	TimeStamp       time.Time
 	Status          Status
+	Forwarded       bool
 	Reactions       []Reaction
 	ReplyToId       string
 	ReplyToContent  string
 	ReplyToUsername string
+	ReplyToPhoto    string
 }
 
 type Group struct {

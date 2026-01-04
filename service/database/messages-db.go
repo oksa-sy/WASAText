@@ -11,14 +11,15 @@ import (
 func (db *appdbimpl) ForwardMessage(userId string, participantId string, messageId string) (Message, error) {
 	message := Message{}
 	// controllo che il messaggio esiste e che l'untente faccia parte di quella conversazione, prendo il contenuto
-	var content string
+	var content sql.NullString
+	var photo sql.NullString
 	conv, err := db.CreateNewConversation(participantId, userId)
 	convId := conv.Id
 	if err != nil {
 		return message, err
 	}
 	// recupero il contenuto del messaggio solo se l'utente fa parte di quella conversazione
-	err = db.c.QueryRow(`SELECT m.content FROM messages m, participants p WHERE m.id = ? AND m.conversation_id = p.conversation_id AND p.user_id = ?`, messageId, userId).Scan(&content)
+	err = db.c.QueryRow(`SELECT m.content, m.photo FROM messages m, participants p WHERE m.id = ? AND m.conversation_id = p.conversation_id AND p.user_id = ?`, messageId, userId).Scan(&content, &photo)
 	if err != nil {
 		return message, err
 	}
@@ -28,7 +29,7 @@ func (db *appdbimpl) ForwardMessage(userId string, participantId string, message
 		return message, err
 	}
 	currentTime := globaltime.Now()
-	_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, status) VALUES (?, ?, ?, ?, ?, 'recieved')", forwardedMessageId, convId, userId, content, currentTime)
+	_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, status, forwarded, photo) VALUES (?, ?, ?, ?, ?, 'recieved', 1, ?)", forwardedMessageId, convId, userId, content, currentTime, photo)
 	if err != nil {
 		return message, err
 	}
@@ -40,7 +41,8 @@ func (db *appdbimpl) ForwardMessage(userId string, participantId string, message
 	}
 	message = Message{
 		Id:        forwardedMessageId,
-		Content:   content,
+		Content:   content.String,
+		Photo:     photo.String,
 		Username:  username,
 		TimeStamp: currentTime,
 		Status:    "recieved",

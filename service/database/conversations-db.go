@@ -15,7 +15,7 @@ func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) 
 	// con una sottoquery recupero l'id dell'ultimo messaggio inviato nella conversazione
 	// raggruppo per id della conversazione per eleminare duplicati
 	// ritorno il risultato ordinato in ordine cronologico inverso
-	conversations, err := db.c.Query(`SELECT c.id, COALESCE(c.name, u.username), COALESCE(c.photo, u.photo), m.timestamp, m.content, c.is_group
+	conversations, err := db.c.Query(`SELECT c.id, COALESCE(c.name, u.username), COALESCE(c.photo, u.photo), m.timestamp, m.content, m.photo, c.is_group
     									FROM conversations c
     									JOIN participants p1 ON c.id = p1.conversation_id
     									LEFT JOIN participants p2 ON c.id = p2.conversation_id AND p2.user_id != p1.user_id
@@ -37,7 +37,8 @@ func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) 
 		// per considerare il caso in cui timestamp e content sono NULL
 		var dbTime sql.NullTime
 		var dbContent sql.NullString
-		err := conversations.Scan(&conversation.Id, &conversation.Name, &conversation.Photo, &dbTime, &dbContent, &conversation.IsGroup)
+		var dbPhoto sql.NullString
+		err := conversations.Scan(&conversation.Id, &conversation.Name, &conversation.Photo, &dbTime, &dbContent, &dbPhoto, &conversation.IsGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -45,10 +46,15 @@ func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) 
 		if dbTime.Valid {
 			conversation.TimeStamp = dbTime.Time
 		}
-		if dbContent.Valid {
+		if dbContent.String != "" && dbContent.Valid {
 			conversation.Preview = dbContent.String
 		} else {
 			conversation.Preview = ""
+		}
+		if dbPhoto.String != "" && dbPhoto.Valid {
+			conversation.PreviewIsPhoto = true
+		} else {
+			conversation.PreviewIsPhoto = false
 		}
 		conversationResult = append(conversationResult, conversation)
 	}
@@ -145,7 +151,7 @@ func (db *appdbimpl) CreateNewConversation(participantId string, userId string) 
 }
 
 // creo il messaggio e lo memorizzo nel database
-func (db *appdbimpl) CreateMessage(conversationId string, userId string, content string, replyTo string) (Message, error) {
+func (db *appdbimpl) CreateMessage(conversationId string, userId string, content string, replyTo string, photo string) (Message, error) {
 	message := Message{}
 	// controllo che esiste una conversazione con quell'id in cui partecipa l'utente
 	var cId string
@@ -164,7 +170,7 @@ func (db *appdbimpl) CreateMessage(conversationId string, userId string, content
 	}
 	currentTime := globaltime.Now()
 	if replyTo == "" {
-		_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, status) VALUES (?, ?, ?, ?, ?, 'recieved')", messageId, conversationId, userId, content, currentTime)
+		_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, status, photo) VALUES (?, ?, ?, ?, ?, 'recieved', ?)", messageId, conversationId, userId, content, currentTime, photo)
 		if err != nil {
 			return message, err
 		}
@@ -179,7 +185,7 @@ func (db *appdbimpl) CreateMessage(conversationId string, userId string, content
 			return message, err
 		}
 		// se esiste lo memorizzo, altrimenti ritorno l'errore
-		_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, reply_to, status) VALUES (?, ?, ?, ?, ?, ?, 'recieved')", messageId, conversationId, userId, content, currentTime, replyTo)
+		_, err = db.c.Exec("INSERT INTO messages (id, conversation_id, sender_id, content, timestamp, reply_to, status, photo) VALUES (?, ?, ?, ?, ?, ?, 'recieved', ?)", messageId, conversationId, userId, content, currentTime, replyTo, photo)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return message, errors.New(RowNotFound)
@@ -196,6 +202,7 @@ func (db *appdbimpl) CreateMessage(conversationId string, userId string, content
 	message = Message{
 		Id:        messageId,
 		Content:   content,
+		Photo:     photo,
 		Username:  senderName,
 		TimeStamp: currentTime,
 		Status:    "recieved",
@@ -221,7 +228,7 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 		return nil, err
 	}
 	// lista dei messaggi in ordine cronologico inverso
-	messages, err := db.c.Query(`SELECT m.id, u.username, m.content, m.timestamp, m.status, m.reply_to FROM messages m, users u WHERE m.conversation_id = ? and u.id = m.sender_id ORDER BY timestamp desc`, conversationId)
+	messages, err := db.c.Query(`SELECT m.id, u.username, m.content, m.timestamp, m.status, m.reply_to, m.forwarded, m.photo FROM messages m, users u WHERE m.conversation_id = ? and u.id = m.sender_id ORDER BY timestamp desc`, conversationId)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +237,7 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 	for messages.Next() {
 		var m Message
 		var replyToId sql.NullString
-		err := messages.Scan(&m.Id, &m.Username, &m.Content, &m.TimeStamp, &m.Status, &replyToId)
+		err := messages.Scan(&m.Id, &m.Username, &m.Content, &m.TimeStamp, &m.Status, &replyToId, &m.Forwarded, &m.Photo)
 		if err != nil {
 			messages.Close()
 			return nil, err
@@ -269,11 +276,13 @@ func (db *appdbimpl) GetConversation(conversationId string, userId string) ([]Me
 			// gestione errore se il messaggio padre è stato cancellato
 			var replyUsername string
 			var replyContent string
-			err = db.c.QueryRow(`SELECT m.content, u.username FROM messages m, users u WHERE m.id = ? AND m.sender_id = u.id`, msg.ReplyToId).Scan(&replyContent, &replyUsername)
+			var replyPhoto string
+			err = db.c.QueryRow(`SELECT m.content, u.username, m.photo FROM messages m, users u WHERE m.id = ? AND m.sender_id = u.id`, msg.ReplyToId).Scan(&replyContent, &replyUsername, &replyPhoto)
 			if err == nil {
 				// se tutto ok assegno il contenuto
 				msg.ReplyToContent = replyContent
 				msg.ReplyToUsername = replyUsername
+				msg.ReplyToPhoto = replyPhoto
 			} else if !errors.Is(err, sql.ErrNoRows) {
 				return nil, err
 			}

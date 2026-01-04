@@ -26,6 +26,8 @@ export default {
 			selected_reaction: null,
 			reply_to: null,
 			msg_forward: null,
+			photo_file: null,
+			photo_preview: null,
 			//gruppi
 			new_group: false,
 			members: [],
@@ -38,6 +40,14 @@ export default {
 		}
 	},
 	methods: {
+		photoSelection() {
+			const file = this.$refs.sendPhotoInput.files[0];
+			if (file) {
+				this.photo_file = file;
+				// creo un URL temporaneo per mostrare l'anteprima
+				this.photo_preview = URL.createObjectURL(file);
+			}
+		},
 		addGroupMembers(user){
 			// se gia c'è lo tolgo (deselezione)
 			if (this.members.includes(user)) {
@@ -172,6 +182,7 @@ export default {
 				if (this.conv_open) {
 					await this.listMessages(this.conv_id);
 				}
+				this.show_profile = false;
 			//controllo errori
 			}catch (e) {
 				if (e.response.data.message) {
@@ -230,26 +241,26 @@ export default {
 			try {
 				//effettua chiamata al server
                 let token = localStorage.getItem("id");
-				if (this.reply_to === null) {
-					let response = await this.$axios.post("/conversations/" + this.conv_id + "/messages",
-						{content: this.msgtext},
-						{
-							headers: {
-								"Authorization": "Bearer " + token
-							}
-						}); 
+				let formData = new FormData();
+				formData.append("content", this.msgtext || ""); 
+				if (this.photo_file) {
+					formData.append("photo", this.photo_file);
 				}
-				else {
-					let response = await this.$axios.post("/conversations/" + this.conv_id + "/messages",
-						{content: this.msgtext, replyTo: this.reply_to.msg_id},
-						{
-							headers: {
-								"Authorization": "Bearer " + token
-							}
-						}); 
+				if (this.reply_to) {
+					formData.append("replyTo", this.reply_to.msg_id);
 				}
+				let response = await this.$axios.post("/conversations/" + this.conv_id + "/messages",
+					formData,
+					{
+						headers: {
+							"Authorization": "Bearer " + token
+						}
+					}); 
 			this.reply_to = null;
 			this.msgtext = null;
+			this.photo_file = null;
+			this.photo_preview = null;
+			this.$refs.sendPhotoInput.value = null;
 			await this.listMessages(this.conv_id);
 			await this.listConversations();
 			//controllo errori
@@ -610,7 +621,7 @@ export default {
           <!-- * lista degli utenti sotto la barra di ricerca -->
           <div v-if="!msg_forward && !new_group && !add_to_group" class="list-group position-absolute shadow w-100 start-0 search-list" style="max-height: 300px; overflow-y: auto;">
             <button v-for="user in search_data" :key="user.identifier" class="list-group-item list-group-item-action d-flex align-items-center" @click="startChat(user)">
-              <img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px;">
+              <img v-if="user.photo" :src="'http://localhost:3000' + user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px; object-fit: cover;">
               <div
                 v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
                 style="width: 40px; height: 40px;"
@@ -649,7 +660,7 @@ export default {
         <!-- lista conversazioni  -->
         <div class="flex-grow-1 overflow-auto ">
           <div v-for="conv in conversations" :key="conv.id" class="list-group-item list-group-item-action d-flex align-items-center m-3 border-bottom" style="cursor: pointer;" @click="openChat(conv)">
-            <img v-if="conv.photo" :src="'http://localhost:3000' + conv.photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center m-1 flex-shrink-0" style="width: 40px; height: 40px;">
+            <img v-if="conv.photo" :src="'http://localhost:3000' + conv.photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center m-1 flex-shrink-0" style="width: 40px; height: 40px; object-fit: cover;">
             <div
               v-else class="bg-secondary rounded-circle d-flex justify-content-center align-items-center m-1 flex-shrink-0" 
               style="width: 40px; height: 40px;"
@@ -660,9 +671,10 @@ export default {
               </span>
               <!-- preview e data e ora di invio -->
               <div class="d-flex flex-column align-items-start w-100" style="font-size: 0.7rem;">
-                <span class="text-truncate w-50 text-muted">
-                  {{ conv.preview }}
-                </span>
+				<div class="d-flex">
+					<span v-if="conv.previewIsPhoto" class="text-muted fw-bold me-1">🅾Photo</span>
+					<span class="text-truncate w-50 text-muted">{{ conv.preview }}</span>
+				</div>
                 <span v-if="conv.timestamp.slice(0, 16) !== '0001-01-01T00:00'" class="opacity-75">
                   {{ conv.timestamp.slice(11, 16) }} {{ conv.timestamp.slice(0, 10) }} 
                 </span>
@@ -675,7 +687,7 @@ export default {
       <div class="col-md-8 col-lg-9 h-100 d-flex flex-column bg-white">
         <!-- profilo partecipante: foto e nome -->
         <div v-if="conv_open" class="p-3 border-bottom shadow-sm d-flex align-items-center">
-          <img v-if="participant_photo" :src="'http://localhost:3000' + participant_photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center me-3 flex-shrink-0" style="width: 50px; height: 50px;">
+          <img v-if="participant_photo" :src="'http://localhost:3000' + participant_photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center me-3 flex-shrink-0" style="width: 50px; height: 50px; object-fit: cover;">
           <div
             v-else class="bg-secondary rounded-circle d-flex me-3 flex-shrink-0" 
             style="width: 50px; height: 50px;"
@@ -700,7 +712,7 @@ export default {
               </span>
               <button type="button" class="btn btn-sm dropdown-toggle position-absolute top-0 end-0 d-flex justify-content-center align-items-center text-reset" data-bs-toggle="dropdown" style="width: 10px; height: 20px; border: none;"></button>
               <ul class="dropdown-menu">
-                <li><button class="dropdown-item" type="button" @click="reply_to={msg_id: msg.id, content: msg.content, sender: msg.username}">Reply</button></li>
+                <li><button class="dropdown-item" type="button" @click="reply_to={msg_id: msg.id, content: msg.content, sender: msg.username, photo: msg.photo}">Reply</button></li>
                 <!-- mostro l'opzione di reazione solo sui messaggi inviati dall'altro utente e uso delle reazioni preselezionate-->
                 <button v-if="msg.username !== current_username" class="btn btn-sm btn-light fs-5" @click="reaction(msg.id, '❤️')">❤️</button>
                 <button v-if="msg.username !== current_username" class="btn btn-sm btn-light fs-5" @click="reaction(msg.id, '😂')">😂</button>
@@ -721,9 +733,12 @@ export default {
                   <span class="text-truncate d-block text-muted" style="max-width: 1000px; font-size: 0.9rem;">
                     {{ msg.replyToContent }}
                   </span>
+				  <img v-if="msg.replyToPhoto" :src="'http://localhost:3000' + msg.replyToPhoto" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"></img>
                 </div>
               </div>
-              {{ msg.content }}
+			  <span v-if="msg.forwarded" class="d-flex text-reset fw-bold">↪Forwarded</span>
+			  <img v-if="msg.photo" :src="'http://localhost:3000' + msg.photo" class="shadow-sm d-flex justify-content-center align-items-center m-1 flex-shrink-0" style="width: 300px; height: 300px; object-fit: cover;">
+              <span v-if="msg.content !== ''">{{ msg.content }}</span>
               <!-- data e ora di invio -->
               <div class="d-flex justify-content-end">
                 <div class="text-end opacity-75 me-3" style="font-size: 0.7rem;">
@@ -739,12 +754,13 @@ export default {
                   <!-- se clicco sulla reazione, memorizzo la reazione e il messaggio, questo solo se la reazione era stata inserita dall'utente che ci clicca sopra -->
                   <span v-for="react in msg.reaction" :key="react.emoji" class="badge bg-light border rounded-pill shadow-sm d-flex align-items-center" style="font-size: 0.85rem; padding: 4px 4px;cursor: pointer;" @click="react.username === current_username ? selected_reaction = {msg_id: msg.id, emoji: react.emoji} : null">
                     {{ react.emoji }} 
+					<span v-if="react.username !== current_username" class="text-black fw-bold text-sm">{{ react.username }}</span>
                     <!-- se c'e un messaggio e reazione selezionate mostro l'opzione per eliminare la reazione o una x per annullare -->
                     <div v-if="selected_reaction && selected_reaction.msg_id === msg.id && selected_reaction.emoji === react.emoji" class="d-flex gap-1">
-                      <button v-if="react.username === current_username" type="button" class="btn btn-sm btn-danger" @click.stop="removeReactions(msg.id, react.emoji); selected_reaction = null">
-                        Delete
-                      </button>
-                      <button v-if="react.username === current_username" type="button" class="btn-close" @click.stop="selected_reaction = null"/>
+						<button v-if="react.username === current_username" type="button" class="btn btn-sm btn-danger" @click.stop="removeReactions(msg.id, react.emoji); selected_reaction = null">
+							Delete
+						</button>
+						<button v-if="react.username === current_username" type="button" class="btn-close" @click.stop="selected_reaction = null"/>
                     </div>
                   </span>
                 </div>
@@ -891,14 +907,19 @@ export default {
               <span class="text-truncate d-block text-muted" style="max-width: 1000px; font-size: 0.9rem;">
                 {{ reply_to.content }}
               </span>
+			  <img v-if="reply_to.photo" :src="'http://localhost:3000' + reply_to.photo" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"></img>
             </div>
             <button type="button" class="btn-close" @click="reply_to = null"/>
           </div>
-          <div class="p-2 bg-light border-top d-flex">
-            <input v-if="conv_open" v-model="msgtext" type="text" class="form-control me-1" placeholder="Write a message...">
-            <button v-if="conv_open" type="button" class="btn btn-sm btn-success" @click="sendMessage">
-              ➜
-            </button>
+          <div v-if="conv_open" class="p-2 bg-light border-top d-flex">
+			<input ref="sendPhotoInput" type="file" accept="image/*" style="display: none" @change="photoSelection">
+			<button type="button" class="btn btn-sm btn-secondary me-1" @click="$refs.sendPhotoInput.click()">🅾</button>
+			<div v-if="photo_preview" class="bg-white border-start border-5 border-secondary rounded d-flex">
+				<img :src="photo_preview" class="shadow-sm" style="width: 60px; height: 60px; object-fit: cover;"></img>
+				<button type="button" class="btn-close" @click="photo_file = null; photo_preview = null; $refs.sendPhotoInput.value = null;"/>
+			</div>
+            <input v-model="msgtext" type="text" class="form-control me-1" placeholder="Write a message...">
+            <button type="button" class="btn btn-sm btn-success" @click="sendMessage">➜</button>
           </div>
         </div>
       </div>
@@ -923,3 +944,7 @@ export default {
         overflow-y: auto;      /* scrollbar quando supera la lunghezza massima */
 	}
 </style>
+
+<!-- ! a aggiungere
+quando aggiungo i membri a un gruppo la ricerca mostra anche chi gia c'è nel gruppo
+ -->

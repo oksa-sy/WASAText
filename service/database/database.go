@@ -49,7 +49,7 @@ type AppDatabase interface {
 	// conversations
 	GetAllConversations(userId string) ([]Conversation, error)
 	CreateNewConversation(participantId string, userId string) (Conversation, error)
-	CreateMessage(conversationId string, userId string, content string, replyTo string) (Message, error)
+	CreateMessage(conversationId string, userId string, content string, replyTo string, photo string) (Message, error)
 	GetConversation(conversationId string, userId string) ([]Message, error)
 	// groups
 	CreateNewGroup(user string, name string, members []string) (Group, error)
@@ -108,6 +108,8 @@ func New(db *sql.DB) (AppDatabase, error) {
 			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,  
 			reply_to TEXT,
 			status TEXT CHECK(status IN ('recieved', 'read', 'error')) DEFAULT 'recieved',
+			forwarded BOOLEAN DEFAULT 0 NOT NULL,
+			photo TEXT,
 			FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
 			FOREIGN KEY (sender_id) REFERENCES users(id)
 		);
