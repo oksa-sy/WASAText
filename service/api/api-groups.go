@@ -112,6 +112,10 @@ func (rt *_router) addToGroup(w http.ResponseWriter, r *http.Request, ps httprou
 			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
 			return
 		}
+		if err.Error() == "already a member" {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "this user is already part of the group")
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -211,6 +215,36 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(photo)
+	if err != nil {
+		rt.baseLogger.Errorf("Error encoding response: %v", err)
+	}
+}
+
+// lista membri del gruppo
+func (rt *_router) groupMembersList(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	groupId := ps.ByName("groupId") // leggo l'id del gruppo dal path
+	members, err := rt.db.GetGroupMembers(groupId)
+	if err != nil {
+		// controllo se l'errore è RowNotFound
+		if err.Error() == RowNotFound {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	memberResults := make([]User, 0)
+	for _, m := range members {
+		u := User{
+			Id:       m.Id,
+			Photo:    m.Photo,
+			Username: m.Username,
+		}
+		memberResults = append(memberResults, u)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(memberResults)
 	if err != nil {
 		rt.baseLogger.Errorf("Error encoding response: %v", err)
 	}

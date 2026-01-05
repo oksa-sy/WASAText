@@ -28,6 +28,8 @@ func (rt *_router) Handler() http.Handler {
 	rt.router.PUT("/groups/:groupId/photo", rt.wrap(rt.setGroupPhoto))
 	rt.router.POST("/groups/:groupId/members", rt.wrap(rt.addToGroup))
 	rt.router.DELETE("/groups/:groupId/members/me", rt.wrap(rt.leaveGroup))
+	rt.router.GET("/groups/:groupId/members", rt.wrap(rt.groupMembersList))
+
 	// messages
 	rt.router.POST("/messages/:messageId", rt.wrap(rt.forwardMessage))
 	rt.router.DELETE("/messages/:messageId", rt.wrap(rt.deleteMessage))

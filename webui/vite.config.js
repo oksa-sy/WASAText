@@ -21,6 +21,7 @@ export default defineConfig(({command, mode, ssrBuild}) => {
                 '^/conversations': { target: 'http://localhost:3000' },
                 '^/groups': { target: 'http://localhost:3000' },
                 '^/messages': { target: 'http://localhost:3000' },
+				'/images': {target: 'http://localhost:3000'},
             }
         }
 	};

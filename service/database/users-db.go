@@ -1,9 +1,6 @@
 package database
 
-import (
-	"database/sql"
-	"errors"
-)
+import "errors"
 
 // controllo se un id utente è effettivamente presente nel database
 func (db *appdbimpl) SearchUser(requestId string) (bool, error) {
@@ -22,9 +19,6 @@ func (db *appdbimpl) CreateUser(name string) (string, error) {
 	err := db.c.QueryRow(`SELECT id FROM users WHERE username = ?`, name).Scan(&id)
 	if err == nil {
 		return id, nil
-	}
-	if !(errors.Is(err, sql.ErrNoRows)) {
-		return "", err
 	}
 	// se non esiste, genero l'id e aggiungo l'utente alla tabella
 	userId, err := createId()
@@ -59,6 +53,9 @@ func (db *appdbimpl) GetUsersByName(name string) ([]User, error) {
 	}
 	if err = userResults.Err(); err != nil {
 		return nil, err
+	}
+	if len(users) == 0 {
+		return users, errors.New(RowNotFound)
 	}
 	return users, nil
 }

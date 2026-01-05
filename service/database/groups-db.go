@@ -84,29 +84,20 @@ func (db *appdbimpl) SetNewGroupPhoto(groupId string, photo string, userId strin
 // aggiungere un utente al gruppo
 // bisogna essere nel gruppo
 func (db *appdbimpl) AddUserToGroup(memberId string, userId string, groupId string) (string, error) {
-	// controllo se la conversazione esiste, se l'utente partecipa ad essa e se è un gruppo
-	var isGroup bool
-	err := db.c.QueryRow(`SELECT is_group FROM conversations WHERE id = ?`, groupId).Scan(&isGroup)
-	if err != nil || !isGroup {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", errors.New(RowNotFound)
-		}
-		return "", err
-	}
 	var exists int
-	err = db.c.QueryRow(`SELECT 1 from participants WHERE user_id = ? and conversation_id = ?`, userId, groupId).Scan(&exists)
-	if err != nil || !isGroup {
+	// controllo se l'utente esiste
+	err := db.c.QueryRow("SELECT 1 FROM users WHERE id = ?", memberId).Scan(&exists)
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", errors.New(RowNotFound)
 		}
 		return "", err
 	}
 	// controllo se l'utente fa parte del gruppo
-	err = db.c.QueryRow("SELECT 1 FROM users WHERE id = ?", memberId).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", errors.New(RowNotFound)
-		}
+	err = db.c.QueryRow(`SELECT 1 from participants WHERE user_id = ? and conversation_id = ?`, memberId, groupId).Scan(&exists)
+	if err == nil {
+		return memberId, errors.New("already a member")
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return "", err
 	}
 	var numMembers int
@@ -164,4 +155,31 @@ func (db *appdbimpl) LeaveGroup(userId string, groupId string) error {
 		}
 	}
 	return nil
+}
+
+func (db *appdbimpl) GetGroupMembers(groupId string) ([]User, error) {
+	members := make([]User, 0)
+	membersList, err := db.c.Query(`SELECT u.id, u.username, u.photo FROM users u, participants p WHERE u.id = p.user_id AND p.conversation_id = ?`, groupId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return members, errors.New(RowNotFound)
+		}
+		return nil, err
+	}
+	defer membersList.Close() // chiudo la ricerca per liberare la connessione
+	// salvo il risultato
+	for membersList.Next() {
+		var m User
+		err := membersList.Scan(&m.Id, &m.Username, &m.Photo)
+		if err != nil {
+			membersList.Close()
+			return nil, err
+		}
+		members = append(members, m)
+	}
+	membersList.Close()
+	if err = membersList.Err(); err != nil {
+		return nil, err
+	}
+	return members, err
 }

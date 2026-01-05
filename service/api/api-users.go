@@ -20,6 +20,10 @@ func (rt *_router) searchUsers(w http.ResponseWriter, r *http.Request, ps httpro
 	}
 	result, err := rt.db.GetUsersByName(username)
 	if err != nil {
+		if err.Error() == RowNotFound {
+			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "no result with the specified criteria")
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

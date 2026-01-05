@@ -72,9 +72,9 @@ func (db *appdbimpl) DeleteMessage(userId string, messageId string) error {
 // aggiugere una reazione a un messaggio
 func (db *appdbimpl) CreateReaction(reaction string, messageId string, userId string) (Reaction, error) {
 	r := Reaction{}
-	// controllo che il messaggio esiste e fa parte di una conversazione in cui l'utente partecipa e non è colui che ha inviato il messaggio, ottengo il suo username
+	// controllo che il messaggio esiste e fa parte di una conversazione in cui l'utente partecipa, ottengo il suo username
 	var username string
-	err := db.c.QueryRow(`SELECT u.username FROM messages m, participants p, users u WHERE p.user_id = ? and m.conversation_id = p.conversation_id and m.id = ? and m.sender_id != ? and u.id = ?`, userId, messageId, userId, userId).Scan(&username)
+	err := db.c.QueryRow(`SELECT u.username FROM messages m, participants p, users u WHERE p.user_id = ? and m.conversation_id = p.conversation_id and m.id = ? and u.id = ?`, userId, messageId, userId, userId).Scan(&username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return r, errors.New(RowNotFound)

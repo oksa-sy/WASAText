@@ -57,6 +57,7 @@ type AppDatabase interface {
 	SetNewGroupPhoto(groupId string, photo string, userId string) error
 	AddUserToGroup(memberId string, userId string, groupId string) (string, error)
 	LeaveGroup(userId string, groupId string) error
+	GetGroupMembers(groupId string) ([]User, error)
 	// messages
 	ForwardMessage(userId string, conversationId string, messageId string) (Message, error)
 	DeleteMessage(userId string, messageId string) error

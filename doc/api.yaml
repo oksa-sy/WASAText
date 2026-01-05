@@ -398,6 +398,33 @@ paths:
           $ref: '#/components/responses/BadRequest'
 
   /groups/{groupId}/members:
+    #ritorna la lista dei membri
+    get:
+      tags: ["Groups"]
+      operationId: getGroupMembers
+      summary: list of all members of a group
+      description: list of all members of a group with the specified id.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: members obtained successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                description: request of members in a group
+                properties:
+                  messages: 
+                    type: array
+                    description: list of members in a group
+                    minItems: 0
+                    maxItems: 100
+                    items:
+                      $ref: "#/components/schemas/User"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+          
     #aggiungere un solo utente solo se si è nel gruppo
     #gli utenti esistenti non possono aggiungersi da soli o vedere gruppi di cui non fanno parte
     post:
