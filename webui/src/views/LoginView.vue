@@ -16,7 +16,7 @@ export default {
 			    localStorage.setItem("id", response.data.identifier);
                 localStorage.setItem("username", this.username);
                 //passo alla home
-                this.$router.push("/");
+                this.$router.push("/home");
             } catch (e) {
                 //controllo se c'è un errore, se presente un messaggio stampo quello, altrimenti l'errore in stringa
                 if (e.response.data.message) {

@@ -221,7 +221,7 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 }
 
 // lista membri del gruppo
-func (rt *_router) groupMembersList(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+func (rt *_router) getGroupMembers(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	groupId := ps.ByName("groupId") // leggo l'id del gruppo dal path
 	members, err := rt.db.GetGroupMembers(groupId)
 	if err != nil {

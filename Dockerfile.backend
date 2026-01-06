@@ -1,0 +1,18 @@
+FROM golang:1.23 AS builder
+WORKDIR /src/
+# prende il codice sorgente e lo copia
+COPY . .
+# fa partire il backend
+RUN go build -o /app/webapi ./cmd/webapi
+# come stadio finale riparto da un immagine pulita e meno pesante di go
+FROM debian:bookworm
+# porte
+EXPOSE 3000 4000
+# dir di lavoro
+WORKDIR /app/
+# copia l'eseguibile
+COPY --from=builder /app/webapi ./
+# crea la cartella necessaria per le foto
+RUN mkdir -p -m a=rwx ./images 
+# al termine esegui
+CMD ["/app/webapi"]
