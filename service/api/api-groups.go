@@ -166,7 +166,7 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 		return
 	}
 	filetype := http.DetectContentType(buff)
-	if filetype != "image/jpeg" && filetype != "image/png" {
+	if filetype != jpegImg && filetype != pngImg {
 		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid format, only jpeg and png allowed")
 		return
 	}

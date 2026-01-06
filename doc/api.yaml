@@ -398,6 +398,13 @@ paths:
           $ref: '#/components/responses/BadRequest'
 
   /groups/{groupId}/members:
+    parameters:
+          - name: groupId
+            in: path
+            required: true
+            description: group id
+            schema: 
+              $ref: "#/components/schemas/GroupID"
     #ritorna la lista dei membri
     get:
       tags: ["Groups"]
@@ -434,13 +441,6 @@ paths:
       description: Update the group by adding a member if one is not already present.
       security:
         - BearerAuth: []
-      parameters:
-        - name: groupId
-          in: path
-          required: true
-          description: group id
-          schema: 
-            $ref: "#/components/schemas/GroupID"
       requestBody:
         description: data of the new member.
         required: true
@@ -734,10 +734,12 @@ components:
           $ref: "#/components/schemas/Content"
         replyTo: #messaggio a cui si sta risponendo, opzionale, non necessariamente in risposta a un altro messaggio
           $ref: "#/components/schemas/MessageID"
-        photo:  
+        photoFile:  
           type: string
           format: binary 
           description: image to send
+          minLength: 1
+          maxLength: 5242880
   
     Message:
       type: object

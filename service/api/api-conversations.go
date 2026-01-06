@@ -100,7 +100,7 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 			return
 		}
 		filetype := http.DetectContentType(buff)
-		if filetype != "image/jpeg" && filetype != "image/png" {
+		if filetype != jpegImg && filetype != pngImg {
 			errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid format: only jpeg and png allowed")
 			return
 		}
@@ -123,7 +123,10 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 		// salvo
 		dst, _ := os.Create(filePath)
 		defer dst.Close()
-		io.Copy(dst, file)
+		if _, err := io.Copy(dst, file); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		photoPath = "/images/" + filename
 	}
 	// controllo se manca anche il testo, in quel caso mando errore

@@ -11,6 +11,9 @@ type Status string
 
 const RowNotFound = "not found"
 
+const jpegImg = "image/jpeg"
+const pngImg = "image/png"
+
 var nameRegex = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
 
 var groupNameRegex = regexp.MustCompile(`^[a-zA-Z0-9 _-]+$`)
@@ -77,7 +80,7 @@ type Conversation struct {
 type CreateMessage struct {
 	Content string `json:"content,omitempty"`
 	ReplyTo string `json:"replyTo,omitempty"`
-	Photo   string `json:"photo,omitempty"`
+	Photo   string `json:"photoFile,omitempty"`
 }
 
 type Message struct {

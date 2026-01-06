@@ -104,7 +104,7 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 		return
 	}
 	filetype := http.DetectContentType(buff)
-	if filetype != "image/jpeg" && filetype != "image/png" {
+	if filetype != jpegImg && filetype != pngImg {
 		errorJson(w, http.StatusBadRequest, ErrCodeBadRequest, "invalid format: only jpeg and png allowed")
 		return
 	}
