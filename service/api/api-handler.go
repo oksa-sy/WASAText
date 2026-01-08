@@ -11,7 +11,7 @@ func (rt *_router) Handler() http.Handler {
 	// non richiede autenticazione
 	rt.router.POST("/session", rt.doLogin)
 	// per images
-	rt.router.ServeFiles("/images/*filepath", http.Dir("./images"))
+	rt.router.ServeFiles("/images/*filepath", http.Dir("/tmp/images"))
 	// rotte protette da wrap
 	// users
 	rt.router.PUT("/users/me/name", rt.wrap(rt.setMyUserName))

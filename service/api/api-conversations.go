@@ -119,9 +119,18 @@ func (rt *_router) sendMessage(w http.ResponseWriter, r *http.Request, ps httpro
 		fileId := hex.EncodeToString(bytes)
 		extension := filepath.Ext(fileHeader.Filename)
 		filename := fileId + extension
-		filePath := filepath.Join("./images", filename)
+		filePath := filepath.Join("/tmp/images", filename)
+		// se la cartella non esiste la crea
+		if err := os.MkdirAll("/tmp/images", 0755); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		// salvo
-		dst, _ := os.Create(filePath)
+		dst, err := os.Create(filePath)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		defer dst.Close()
 		if _, err := io.Copy(dst, file); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

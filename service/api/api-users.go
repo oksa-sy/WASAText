@@ -120,7 +120,12 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 		extension = ".png"
 	}
 	filename := ctx.UserId + extension
-	filePath := filepath.Join("./images", filename) // salva in cartella images
+	filePath := filepath.Join("/tmp/images", filename) // salva in cartella images
+	// se la cartella non esiste la crea
+	if err := os.MkdirAll("/tmp/images", 0755); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	// creo file
 	dst, err := os.Create(filePath)
 	if err != nil {

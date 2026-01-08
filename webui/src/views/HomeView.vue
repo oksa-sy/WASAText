@@ -2,6 +2,9 @@
 export default {
 	data: function() {
 		return {
+			//refresh automatico
+			refreshTimer: null,
+			//ricerca
 			errormsg: null,
 			loading: false,
 			some_data: null,
@@ -41,6 +44,12 @@ export default {
 		}
 	},
 	methods: {
+		async autoRefresh() {
+			if (this.conv_id) {
+				await this.listMessages(this.conv_id);
+			}
+			await this.listConversations(); 
+		},
 		photoSelection() {
 			const file = this.$refs.sendPhotoInput.files[0];
 			if (file) {
@@ -85,12 +94,12 @@ export default {
 				this.user_photo = user.photo;
 				localStorage.setItem("photo", user.photo);
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		//ricerca utenti
@@ -124,12 +133,12 @@ export default {
 				}
 			}
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async changePhoto(){
@@ -156,12 +165,12 @@ export default {
 			localStorage.setItem("photo", this.user_photo);
 			this.show_profile = false;
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async changeName(){
@@ -185,15 +194,14 @@ export default {
 				}
 				this.show_profile = false;
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
-		//penso di aver bisogno dell'id della convo pero boh, l'errore è errnorows
 		async startChat(user) {
 			this.errormsg = null;
 			this.search_data = null; 
@@ -218,12 +226,12 @@ export default {
 			await this.listMessages(this.conv_id);  
 			await this.listConversations();                                                                                           
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async openChat(conv) {
@@ -266,12 +274,12 @@ export default {
 			await this.listMessages(this.conv_id);
 			await this.listConversations();
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async listMessages(conversation_id){
@@ -288,12 +296,12 @@ export default {
         		); 
 			this.messages = response.data;
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async listConversations(){
@@ -310,12 +318,12 @@ export default {
         		); 
 			this.conversations = response.data;
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async deleteMsg(msg_id){
@@ -335,12 +343,12 @@ export default {
 			await this.listMessages(this.conv_id);
 			await this.listConversations();
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async reaction(msg_id, emoji){
@@ -358,12 +366,12 @@ export default {
         		); 
 			await this.listMessages(this.conv_id);
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async removeReactions(msg_id, emoji){
@@ -383,12 +391,12 @@ export default {
 			let msg = this.messages.find(m => m.id === msg_id);
 			msg.reaction = msg.reaction.filter(r => r.emoji !== emoji);	
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async forward(user_id){
@@ -408,12 +416,12 @@ export default {
 			await this.listMessages(this.conv_id);
 			await this.listConversations();
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async newGroup(){ 
@@ -438,12 +446,12 @@ export default {
         	let chat = this.conversations.find(conv => conv.id === response.data.id);
 			this.openChat(chat);
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async leave(){
@@ -458,15 +466,15 @@ export default {
 						}
 					}
         		); 
-			//elimino il messaggio dalla lista locale
+			//elimino dalla lista locale
 			this.conversations = this.conversations.filter(conv => conv.id !== this.conv_id);
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async changeGroupPhoto(){
@@ -495,12 +503,12 @@ export default {
 			this.edit_profile = false;
 			await this.listConversations();
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async changeGroupName(){
@@ -520,12 +528,12 @@ export default {
 				this.edit_profile = false;
 				this.participant_name = response.data.name;
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async addToGroup(userId){
@@ -545,12 +553,12 @@ export default {
 				this.search_data = null; 
 				this.search_in = null;  
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		},
 		async getMembers(){
@@ -567,16 +575,20 @@ export default {
         		); 
 			this.members = response.data;
 			//controllo errori
-			}catch (e) {
-				if (e.response.data.message) {
-                    this.errormsg = e.response.data.message; 
-                } else {
-                    this.errormsg = e.response.data;
-                }   
+			} catch (e) {
+				if (e.response && e.response.data) {
+					this.errormsg = e.response.data.message || e.response.data;
+				} else {
+					this.errormsg = "The server is not working. Please try again later.";
+				}
 			}
 		}
 	},
 	mounted() {
+		// ricarico automatico ogni tre secondi
+		this.refreshInterval = setInterval(() => {
+			this.autoRefresh();
+		}, 3000);
 		let username = localStorage.getItem("username");
 		if (username) {
 			this.current_username = username;
@@ -646,10 +658,7 @@ export default {
           <div v-if="!msg_forward && !new_group && !add_to_group" class="list-group position-absolute shadow w-100 start-0 search-list" style="max-height: 300px; overflow-y: auto;">
             <button v-for="user in search_data" :key="user.identifier" class="list-group-item list-group-item-action d-flex align-items-center" @click="startChat(user)">
               <img v-if="user.photo" :src="user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px; object-fit: cover;">
-              <div
-                v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
-                style="width: 40px; height: 40px;"
-              />
+              <div v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" style="width: 40px; height: 40px;"/>
               <span class="fw-bold">
                 {{ user.username }}
               </span>
@@ -758,7 +767,7 @@ export default {
                   <span class="text-truncate d-block text-muted" style="max-width: 1000px; font-size: 0.9rem;">
                     {{ msg.replyToContent }}
                   </span>
-				  <img v-if="msg.replyToPhoto" :src="msg.replyToPhoto" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"></img>
+				  <img v-if="msg.replyToPhoto" :src="msg.replyToPhoto" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"/>
                 </div>
               </div>
 			  <span v-if="msg.forwarded" class="d-flex text-reset fw-bold">↪Forwarded</span>
@@ -953,7 +962,7 @@ export default {
               <span class="text-truncate d-block text-muted" style="max-width: 1000px; font-size: 0.9rem;">
                 {{ reply_to.content }}
               </span>
-			  <img v-if="reply_to.photo" :src="reply_to.photo" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"></img>
+			  <img v-if="reply_to.photo" :src="reply_to.photo" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"/>
             </div>
             <button type="button" class="btn-close" @click="reply_to = null"/>
           </div>
@@ -961,7 +970,7 @@ export default {
 			<input ref="sendPhotoInput" type="file" accept="image/*" style="display: none" @change="photoSelection">
 			<button type="button" class="btn btn-sm btn-secondary me-1" @click="$refs.sendPhotoInput.click()">🅾</button>
 			<div v-if="photo_preview" class="bg-white border-start border-5 border-secondary rounded d-flex">
-				<img :src="photo_preview" class="shadow-sm" style="width: 60px; height: 60px; object-fit: cover;"></img>
+				<img :src="photo_preview" class="shadow-sm" style="width: 60px; height: 60px; object-fit: cover;"/>
 				<button type="button" class="btn-close" @click="photo_file = null; photo_preview = null; $refs.sendPhotoInput.value = null;"/>
 			</div>
             <input v-model="msgtext" type="text" class="form-control me-1" placeholder="Write a message...">

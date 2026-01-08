@@ -183,7 +183,12 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 		extension = ".png"
 	}
 	filename := groupId + extension
-	filePath := filepath.Join("./images", filename) // salva in cartella images
+	filePath := filepath.Join("/tmp/images", filename) // salva in cartella images
+	// se la cartella non esiste la crea
+	if err := os.MkdirAll("/tmp/images", 0755); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	// creo file
 	dst, err := os.Create(filePath)
 	if err != nil {

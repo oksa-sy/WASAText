@@ -12,7 +12,5 @@ EXPOSE 3000 4000
 WORKDIR /app/
 # copia l'eseguibile
 COPY --from=builder /app/webapi ./
-# crea la cartella necessaria per le foto
-RUN mkdir -p -m a=rwx ./images 
 # al termine esegui
 CMD ["/app/webapi"]
