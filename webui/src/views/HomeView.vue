@@ -105,7 +105,7 @@ export default {
 		//ricerca utenti
 		async search() {
 			this.errormsg = null;
-			this. search_data = [];
+			this.search_data = [];
 			// se sto cercando di inoltrare un messaggio includo nei risultati della ricerca anche i gruppi che corrispondono a quel nome
 			if (this.msg_forward) {
 				this.conv_groups = [];
