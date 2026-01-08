@@ -105,20 +105,7 @@ export default {
 		//ricerca utenti
 		async search() {
 			this.errormsg = null;
-			try {
-				//effettua chiamata al server autenticandomi e inviando il nome letto
-                let token = localStorage.getItem("id");
-                let response = await this.$axios.get("/users", {
-					params: {
-						username: this.search_in
-					},
-                    headers: {
-                        "Authorization": "Bearer " + token
-                    }
-                }); 
-			this.search_data = response.data
-			// elimino l'utente loggato dai risultati di ricerca 
-			this.search_data = this.search_data.filter(user => user.identifier != token);
+			this. search_data = [];
 			// se sto cercando di inoltrare un messaggio includo nei risultati della ricerca anche i gruppi che corrispondono a quel nome
 			if (this.msg_forward) {
 				this.conv_groups = [];
@@ -132,9 +119,29 @@ export default {
 					this.search_data.push(c);
 				}
 			}
+			try {
+				//effettua chiamata al server autenticandomi e inviando il nome letto
+                let token = localStorage.getItem("id");
+                let response = await this.$axios.get("/users", {
+					params: {
+						username: this.search_in
+					},
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    }
+                }); 
+			// elimino l'utente loggato dai risultati di ricerca 
+			let resultUsers = response.data.filter(user => user.identifier != token);
+			// aggiungo gli utenti trovati alla lista che in caso contiene anche i gruppi
+            this.search_data.push(...resultUsers);
 			//controllo errori
 			} catch (e) {
 				if (e.response && e.response.data) {
+					// controllo prima se l'errore è che non ha trovato nulla, ma se esiste un gruppo con quel nome allora non deve restituire errore
+					let existsGroup = this.search_data.some(item => item.username.toLowerCase().includes(this.search_in.toLowerCase()));
+					if (e.response.data.message === "no result with the specified criteria" && existsGroup) {
+						return; 
+					}
 					this.errormsg = e.response.data.message || e.response.data;
 				} else {
 					this.errormsg = "The server is not working. Please try again later.";
@@ -166,12 +173,12 @@ export default {
 			this.show_profile = false;
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async changeName(){
 			this.errormsg = null;
@@ -195,12 +202,12 @@ export default {
 				this.show_profile = false;
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async startChat(user) {
 			this.errormsg = null;
@@ -227,12 +234,12 @@ export default {
 			await this.listConversations();                                                                                           
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async openChat(conv) {
 			// preparo la conversazione e chiamo list messages per preparare i messaggi
@@ -275,12 +282,12 @@ export default {
 			await this.listConversations();
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async listMessages(conversation_id){
 			this.errormsg = null;
@@ -297,12 +304,12 @@ export default {
 			this.messages = response.data;
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async listConversations(){
 			this.errormsg = null;
@@ -319,12 +326,12 @@ export default {
 			this.conversations = response.data;
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async deleteMsg(msg_id){
 			this.errormsg = null;
@@ -344,12 +351,12 @@ export default {
 			await this.listConversations();
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async reaction(msg_id, emoji){
 			this.errormsg = null;
@@ -367,12 +374,12 @@ export default {
 			await this.listMessages(this.conv_id);
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async removeReactions(msg_id, emoji){
 			this.delete_reaction = false;
@@ -392,12 +399,12 @@ export default {
 			msg.reaction = msg.reaction.filter(r => r.emoji !== emoji);	
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async forward(user_id){
 			this.search_data = null; 
@@ -417,12 +424,12 @@ export default {
 			await this.listConversations();
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async newGroup(){ 
 			this.errormsg = null;
@@ -447,12 +454,12 @@ export default {
 			this.openChat(chat);
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async leave(){
 			this.errormsg = null;
@@ -470,12 +477,12 @@ export default {
 			this.conversations = this.conversations.filter(conv => conv.id !== this.conv_id);
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async changeGroupPhoto(){
 			this.errormsg = null;
@@ -504,12 +511,12 @@ export default {
 			await this.listConversations();
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async changeGroupName(){
 			this.errormsg = null;
@@ -529,12 +536,12 @@ export default {
 				this.participant_name = response.data.name;
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async addToGroup(userId){
 			this.errormsg = null;
@@ -554,12 +561,12 @@ export default {
 				this.search_in = null;  
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		},
 		async getMembers(){
 			this.errormsg = null;
@@ -576,12 +583,12 @@ export default {
 			this.members = response.data;
 			//controllo errori
 			} catch (e) {
-				if (e.response && e.response.data) {
-					this.errormsg = e.response.data.message || e.response.data;
-				} else {
-					this.errormsg = "The server is not working. Please try again later.";
-				}
+			if (e.response && e.response.data) {
+				this.errormsg = e.response.data.message || e.response.data;
+			} else {
+				this.errormsg = "The server is not working. Please try again later.";
 			}
+		}
 		}
 	},
 	mounted() {
