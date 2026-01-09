@@ -626,8 +626,11 @@ export default {
             ➜
           </button>
           <!-- pulsante per il profilo modale -->
-          <img v-if="user_photo" :src="user_photo" class="rounded-circle shadow-sm" style="width: 45px; height: 45px; object-fit: cover; cursor: pointer;" @click="show_profile = true">
+          <img v-if="user_photo" :src="this.$axios.defaults.baseURL + user_photo" class="rounded-circle shadow-sm" style="width: 45px; height: 45px; object-fit: cover; cursor: pointer;" @click="show_profile = true">
           <button v-else ref="profileButton" type="button" class="btn bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center shadow-sm" style="width: 45px; height: 45px;" @click="show_profile = true" />	
+		  <span v-if="current_username" class="text-white fw-bold m-1">
+			{{ current_username }}
+		  </span>
           <!-- * popup si attiva se è stato schiacciato il pulsante -->
           <div v-if="show_profile" class="modal fade show" style="display: block;" aria-modal="true" role="dialog">
             <!-- il popup contiene opzioni per cambiare foto profilo e nome utente -->
@@ -641,7 +644,7 @@ export default {
                   <!-- sezione foto e pulsante per cambiarla -->
                   <div class="d-flex flex-column gap-2 text-start">
                     <!-- deve recuperare il nome del file scelto come input -->	
-                    <img v-if="user_photo" :src="user_photo" class="rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
+                    <img v-if="user_photo" :src="this.$axios.defaults.baseURL + user_photo" class="rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
                     <span v-else class="bg-secondary rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="width: 80px; height: 80px;" />
                     <input ref="photoInput" type="file" accept="image/*" style="display: none" @change="changePhoto">
                     <button type="button" class="btn btn-secondary btn-sm" @click="$refs.photoInput.click()">Upload</button>
@@ -664,7 +667,7 @@ export default {
           <!-- * lista degli utenti sotto la barra di ricerca -->
           <div v-if="!msg_forward && !new_group && !add_to_group" class="list-group position-absolute shadow w-100 start-0 search-list" style="max-height: 300px; overflow-y: auto;">
             <button v-for="user in search_data" :key="user.identifier" class="list-group-item list-group-item-action d-flex align-items-center" @click="startChat(user)">
-              <img v-if="user.photo" :src="user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px; object-fit: cover;">
+              <img v-if="user.photo" :src="this.$axios.defaults.baseURL + user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px; object-fit: cover;">
               <div v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" style="width: 40px; height: 40px;"/>
               <span class="fw-bold">
                 {{ user.username }}
@@ -700,7 +703,7 @@ export default {
         <!-- lista conversazioni  -->
         <div class="flex-grow-1 overflow-auto ">
           <div v-for="conv in conversations" :key="conv.id" class="list-group-item list-group-item-action d-flex align-items-center m-3 border-bottom" style="cursor: pointer;" @click="openChat(conv)">
-            <img v-if="conv.photo" :src="conv.photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center m-1 flex-shrink-0" style="width: 40px; height: 40px; object-fit: cover;">
+            <img v-if="conv.photo" :src="this.$axios.defaults.baseURL + conv.photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center m-1 flex-shrink-0" style="width: 40px; height: 40px; object-fit: cover;">
             <div
               v-else class="bg-secondary rounded-circle d-flex justify-content-center align-items-center m-1 flex-shrink-0" 
               style="width: 40px; height: 40px;"
@@ -727,7 +730,7 @@ export default {
       <div class="col-md-8 col-lg-9 h-100 d-flex flex-column bg-white">
         <!-- profilo partecipante: foto e nome -->
         <div v-if="conv_open" class="p-3 border-bottom shadow-sm d-flex align-items-center">
-          <img v-if="participant_photo" :src="participant_photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center me-3 flex-shrink-0" style="width: 50px; height: 50px; object-fit: cover;">
+          <img v-if="participant_photo" :src="this.$axios.defaults.baseURL + participant_photo" class="rounded-circle shadow-sm d-flex justify-content-center align-items-center me-3 flex-shrink-0" style="width: 50px; height: 50px; object-fit: cover;">
           <div
             v-else class="bg-secondary rounded-circle d-flex me-3 flex-shrink-0" 
             style="width: 50px; height: 50px;"
@@ -774,11 +777,11 @@ export default {
                   <span class="text-truncate d-block text-muted" style="max-width: 1000px; font-size: 0.9rem;">
                     {{ msg.replyToContent }}
                   </span>
-				  <img v-if="msg.replyToPhoto" :src="msg.replyToPhoto" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"/>
+				  <img v-if="msg.replyToPhoto" :src="this.$axios.defaults.baseURL + msg.replyToPhoto" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"/>
                 </div>
               </div>
 			  <span v-if="msg.forwarded" class="d-flex text-reset fw-bold">↪Forwarded</span>
-			  <img v-if="msg.photo" :src="msg.photo" class="shadow-sm d-flex justify-content-center align-items-center m-1 flex-shrink-0" style="width: 300px; height: 300px; object-fit: cover;">
+			  <img v-if="msg.photo" :src="this.$axios.defaults.baseURL + msg.photo" class="shadow-sm d-flex justify-content-center align-items-center m-1 flex-shrink-0" style="width: 300px; height: 300px; object-fit: cover;">
               <span v-if="msg.content !== ''">{{ msg.content }}</span>
               <!-- data e ora di invio -->
               <div class="d-flex justify-content-end">
@@ -826,7 +829,7 @@ export default {
               <div class="modal-body d-flex">
                 <div class="list-group w-100" style="max-height: 300px; overflow-y: auto;">
                   <button v-for="user in search_data" :key="user.identifier" class="list-group-item list-group-item-action d-flex align-items-center" @click="forward(user.identifier)">
-                    <img v-if="user.photo" :src="user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px;">
+                    <img v-if="user.photo" :src="this.$axios.defaults.baseURL + user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px;">
                     <div
                       v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
                       style="width: 40px; height: 40px;"
@@ -857,7 +860,7 @@ export default {
               <div class="modal-body d-flex flex-column">
                 <div class="list-group w-100" style="max-height: 300px; overflow-y: auto;">
                   <button v-for="user in search_data" :key="user.identifier" type="button" class="list-group-item list-group-item-action d-flex align-items-center" @click="addToGroup(user.identifier)">
-                    <img v-if="user.photo" :src="user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px;">
+                    <img v-if="user.photo" :src="this.$axios.defaults.baseURL + user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px;">
                     <div v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" style="width: 40px; height: 40px;"/>
                     <span class="fw-bold">
                       {{ user.username }}
@@ -880,7 +883,7 @@ export default {
                 <!-- sezione foto e pulsante per cambiarla -->
                 <div class="d-flex flex-column gap-2 text-start">
                   <!-- deve recuperare il nome del file scelto come input -->	
-                  <img v-if="participant_photo" :src="participant_photo" class="rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
+                  <img v-if="participant_photo" :src="this.$axios.defaults.baseURL + participant_photo" class="rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
                   <span v-else class="bg-secondary rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="width: 80px; height: 80px;" />
                   <input ref="groupPhotoInput" type="file" accept="image/*" style="display: none" @change="changeGroupPhoto">
                   <button type="button" class="btn btn-secondary btn-sm" @click="$refs.groupPhotoInput.click()">Upload</button>
@@ -908,7 +911,7 @@ export default {
 					<div class="modal-body p-0">
 						<ul v-if="show_members" class="list-group list-group w-100">
 							<li v-for="m in members" :key="m.identifier" class="list-group-item d-flex align-items-center">
-								<img v-if="m.photo" :src="m.photo" class="rounded-circle shadow-sm me-3 flex-shrink-0" style="width: 40px; height: 40px; object-fit: cover;">
+								<img v-if="m.photo" :src="this.$axios.defaults.baseURL + m.photo" class="rounded-circle shadow-sm me-3 flex-shrink-0" style="width: 40px; height: 40px; object-fit: cover;">
 								<span v-else class="bg-secondary rounded-circle d-flex justify-content-center align-items-center text-white me-3 flex-shrink-0" style="width: 40px; height: 40px; font-weight: bold;"/>
 								<span class="text-black fw-bold text-truncate"> 
 									{{ m.username }} 
@@ -941,7 +944,7 @@ export default {
               <div class="modal-body d-flex flex-column">
                 <div v-if="step === 1" class="list-group w-100" style="max-height: 300px; overflow-y: auto;">
                   <button v-for="user in search_data" :key="user.identifier" type="button" class="list-group-item list-group-item-action d-flex align-items-center" :class="{active: members.includes(user.identifier)}" @click="addGroupMembers(user.identifier)">
-                    <img v-if="user.photo" :src="user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px;">
+                    <img v-if="user.photo" :src="this.$axios.defaults.baseURL + user.photo" class="rounded-circle shadow-sm me-3" style="width: 40px; height: 40px;">
                     <div
                       v-else class="bg-secondary rounded-circle text-white d-flex justify-content-center align-items-center me-3" 
                       style="width: 40px; height: 40px;"/>
@@ -969,7 +972,7 @@ export default {
               <span class="text-truncate d-block text-muted" style="max-width: 1000px; font-size: 0.9rem;">
                 {{ reply_to.content }}
               </span>
-			  <img v-if="reply_to.photo" :src="reply_to.photo" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"/>
+			  <img v-if="reply_to.photo" :src="this.$axios.defaults.baseURL + reply_to.photo" class="shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"/>
             </div>
             <button type="button" class="btn-close" @click="reply_to = null"/>
           </div>
@@ -1006,3 +1009,7 @@ export default {
         overflow-y: auto;      /* scrollbar quando supera la lunghezza massima */
 	}
 </style>
+
+<!-- quando cambio immagine profilo non viene mostrata nella chat con altro utente
+se ho una foto profilo e creu un gruppo gli altri la vedono come la foto profilo del gruppo
+"Buggy groups: once a user leaves a group, they still receive messages" -->

@@ -1,9 +1,13 @@
+version: "3.9"
+
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     container_name: wasa-text-backend
+    ports:
+      - "3000:3000"
     restart: unless-stopped
 
   frontend:
