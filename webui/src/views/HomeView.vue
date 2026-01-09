@@ -45,12 +45,17 @@ export default {
 	},
 	methods: {
 		async autoRefresh() {
-			if (this.conv_id) {
-				let chat = this.conversations.find(conv => conv.id === this.conv_id);
-				this.openChat(chat);
-				return;
-			}
 			await this.listConversations(); 
+			if (this.conv_id) {
+				let conv = this.conversations.find(conv => conv.id === this.conv_id);
+				this.conv_id = conv.id;
+				this.participant_name = conv.name;
+				this.participant_photo = conv.photo;
+				this.is_group = conv.isGroup;
+				this.conv_open = true;
+				this.group_photo = null;
+				await this.listMessages(conv.id);
+			}
 		},
 		photoSelection() {
 			const file = this.$refs.sendPhotoInput.files[0];
@@ -621,6 +626,10 @@ export default {
 		this.refresh();
 		this.listConversations();
 	},
+	unmounted() {
+        // fermo il timer se cambio pagina
+        clearInterval(this.refreshInterval);
+    }
 }
 </script>
 
@@ -1024,4 +1033,5 @@ export default {
 	}
 </style>
 
-<!-- quando cambio immagine profilo non viene mostrata nella chat con altro utente -->
+<!-- quando cambio immagine profilo non viene mostrata nella chat con altro utente 
+ non si vede quando cambio di nuovo la foto profilo 	-->

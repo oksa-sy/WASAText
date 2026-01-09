@@ -10,23 +10,24 @@ import (
 func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) {
 	conversationResult := make([]Conversation, 0)
 	// seleziono le informazioni necessarie: COALESCE prende il primo valore non nullo in modo da prelevare la foto/nome del gruppo
-	// e in caso sia NULL dell'utente partecipante alla conversazione privata
+	// e in caso sia NULL dell'utente partecipante alla conversazione privata (solo se non è un gruppo)
 	// faccio join per unire le varie tabelle in base alla conversazione
 	// con una sottoquery recupero l'id dell'ultimo messaggio inviato nella conversazione
 	// raggruppo per id della conversazione per eleminare duplicati
 	// ritorno il risultato ordinato in ordine cronologico inverso
-	conversations, err := db.c.Query(`SELECT c.id, COALESCE(c.name, u.username), COALESCE(c.photo, u.photo), m.timestamp, m.content, m.photo, c.is_group
-    									FROM conversations c
-    									JOIN participants p1 ON c.id = p1.conversation_id
-    									LEFT JOIN participants p2 ON c.id = p2.conversation_id AND p2.user_id != p1.user_id
-    									LEFT JOIN users u ON p2.user_id = u.id
+	conversations, err := db.c.Query(`SELECT c.id, COALESCE(c.name, u.username), CASE WHEN c.is_group = 1 THEN c.photo ELSE u.photo END, m.timestamp, 
+											m.content, m.photo, c.is_group
+										FROM conversations c
+										JOIN participants p1 ON c.id = p1.conversation_id
+										LEFT JOIN participants p2 ON c.id = p2.conversation_id AND p2.user_id != p1.user_id
+										LEFT JOIN users u ON p2.user_id = u.id
 										LEFT JOIN messages m ON m.id = (
 											SELECT id FROM messages 
 											WHERE conversation_id = c.id 
 											ORDER BY timestamp DESC LIMIT 1)
-    									WHERE p1.user_id = ?
-    									GROUP BY c.id 
-    									ORDER BY m.timestamp DESC`, userId)
+										WHERE p1.user_id = ?
+										GROUP BY c.id 
+										ORDER BY m.timestamp DESC`, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -35,14 +36,20 @@ func (db *appdbimpl) GetAllConversations(userId string) ([]Conversation, error) 
 	for conversations.Next() {
 		var conversation Conversation
 		// per considerare il caso in cui timestamp e content sono NULL
+		var groupPhoto sql.NullString
 		var dbTime sql.NullTime
 		var dbContent sql.NullString
 		var dbPhoto sql.NullString
-		err := conversations.Scan(&conversation.Id, &conversation.Name, &conversation.Photo, &dbTime, &dbContent, &dbPhoto, &conversation.IsGroup)
+		err := conversations.Scan(&conversation.Id, &conversation.Name, &groupPhoto, &dbTime, &dbContent, &dbPhoto, &conversation.IsGroup)
 		if err != nil {
 			return nil, err
 		}
 		// se i valori sono non null, li metto nella struct
+		if groupPhoto.Valid {
+			conversation.Photo = groupPhoto.String
+		} else {
+			conversation.Photo = ""
+		}
 		if dbTime.Valid {
 			conversation.TimeStamp = dbTime.Time
 		}

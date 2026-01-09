@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -114,12 +116,15 @@ func (rt *_router) setMyPhoto(w http.ResponseWriter, r *http.Request, ps httprou
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	// creazione file, memorizzato tramite id utente per evitare duplicati
-	extension := filepath.Ext(fileHeader.Filename)
-	if extension == "" {
-		extension = ".png"
+	// genero un nome univoco per il file
+	bytes := make([]byte, 8)
+	if _, err := rand.Read(bytes); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	filename := ctx.UserId + extension
+	fileId := hex.EncodeToString(bytes)
+	extension := filepath.Ext(fileHeader.Filename)
+	filename := fileId + extension
 	filePath := filepath.Join("/tmp/images", filename) // salva in cartella images
 	// se la cartella non esiste la crea
 	if err := os.MkdirAll("/tmp/images", 0755); err != nil {
