@@ -46,7 +46,9 @@ export default {
 	methods: {
 		async autoRefresh() {
 			if (this.conv_id) {
-				await this.listMessages(this.conv_id);
+				let chat = this.conversations.find(conv => conv.id === this.conv_id);
+				this.openChat(chat);
+				return;
 			}
 			await this.listConversations(); 
 		},
@@ -171,6 +173,7 @@ export default {
 			this.user_photo = response.data.photo;
 			localStorage.setItem("photo", this.user_photo);
 			this.show_profile = false;
+			await this.autoRefresh();
 			//controllo errori
 			} catch (e) {
 			if (e.response && e.response.data) {
@@ -432,6 +435,11 @@ export default {
 		}
 		},
 		async newGroup(){ 
+			this.conv_id = null;
+			this.conv_open = false;
+			this.messages = null;
+			this.participant_name = null;
+			this.participant_photo = null;
 			this.errormsg = null;
 			try {
 				//effettua chiamata al server
@@ -446,7 +454,7 @@ export default {
 			this.step = 1;
 			this.members = [];
 			this.group_name = null;
-			// per vedere se il gruppo è effettivamente un gruppo devo cercalo come conversazione, dove è effettivamente memorizzata come informazione
+			// per vedere se il gruppo è effettivamente un gruppo devo cercarlo come conversazione, dove è effettivamente memorizzata come informazione
 			// aggiorno la lista delle conversazioni 
 			await this.listConversations();
 			// cerco la conversazione attuale
@@ -475,6 +483,12 @@ export default {
         		); 
 			//elimino dalla lista locale
 			this.conversations = this.conversations.filter(conv => conv.id !== this.conv_id);
+			//pulizia
+			this.conv_id = null;
+			this.conv_open = false;
+			this.messages = null;
+			this.participant_name = null;
+			this.participant_photo = null;
 			//controllo errori
 			} catch (e) {
 			if (e.response && e.response.data) {
@@ -595,7 +609,7 @@ export default {
 		// ricarico automatico ogni tre secondi
 		this.refreshInterval = setInterval(() => {
 			this.autoRefresh();
-		}, 3000);
+		}, 2000);
 		let username = localStorage.getItem("username");
 		if (username) {
 			this.current_username = username;
@@ -1010,6 +1024,4 @@ export default {
 	}
 </style>
 
-<!-- quando cambio immagine profilo non viene mostrata nella chat con altro utente
-se ho una foto profilo e creu un gruppo gli altri la vedono come la foto profilo del gruppo
-"Buggy groups: once a user leaves a group, they still receive messages" -->
+<!-- quando cambio immagine profilo non viene mostrata nella chat con altro utente -->
