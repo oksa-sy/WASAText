@@ -1,10 +1,8 @@
-# Fantastic coffee (decaffeinated)
+# WASAText
 
-This repository contains the basic structure for [Web and Software Architecture](http://gamificationlab.uniroma1.it/en/wasa/) homework project.
-It has been described in class.
+This repository contains the completed project for the [Web and Software Architecture](http://gamificationlab.uniroma1.it/en/wasa/) homework.
 
-"Fantastic coffee (decaffeinated)" is a simplified version for the WASA course, not suitable for a production environment.
-The full version can be found in the "Fantastic Coffee" repository.
+The application was built starting from the "Fantastic coffee (decaffeinated)" basic structure provided in class, which has been fully implemented and adapted into a functional messaging platform for the course evaluation.
 
 ## Project structure
 
@@ -41,17 +39,6 @@ This repository uses `yarn` and a vendoring technique that exploits the ["Offlin
 
 You should commit the files inside the `.yarn` directory.
 
-## How to set up a new project from this template
-
-You need to:
-
-* Change the Go module path to your module path in `go.mod`, `go.sum`, and in `*.go` files around the project
-* Rewrite the API documentation `doc/api.yaml`
-* If no web frontend is expected, remove `webui` and `cmd/webapi/register-webui.go`
-* Update top/package comment inside `cmd/webapi/main.go` to reflect the actual project usage, goal, and general info
-* Update the code in `run()` function (`cmd/webapi/main.go`) to connect to databases or external resources
-* Write API code inside `service/api`, and create any further package inside `service/` (or subdirectories)
-
 ## How to build
 
 If you're not using the WebUI, or if you don't want to embed the WebUI into the final executable, then:
@@ -87,15 +74,13 @@ If you want to launch the WebUI, open a new tab and launch:
 yarn run dev
 ```
 
-## How to build for production / homework delivery
+## How to build for production
 
 ```shell
 ./open-node.sh
 # (here you're inside the container)
 yarn run build-prod
 ```
-
-For "Web and Software Architecture" students: before committing and pushing your work for grading, please read the section below named "My build works when I use `yarn run dev`, however there is a Javascript crash in production/grading"
 
 ## Known issues
 
